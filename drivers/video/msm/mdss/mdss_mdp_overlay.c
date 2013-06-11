@@ -923,9 +923,14 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 {
 	int ret = 0;
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_overlay_private *mdp5_data;
 
-	if (!mfd || !mdp5_data->ctl)
+	if (!mfd)
+		return -ENODEV;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
+
+	if (!mdp5_data || !mdp5_data->ctl)
 		return -ENODEV;
 
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
@@ -1264,12 +1269,12 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	struct mdss_mdp_data data;
 	struct mdss_mdp_pipe *pipe;
 	struct fb_info *fbi;
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_overlay_private *mdp5_data;
 	u32 offset;
 	int bpp, ret;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	if (!mfd || !mdp5_data->ctl)
+	if (!mfd)
 		return;
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
@@ -1286,6 +1291,10 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	}
 
 	fbi = mfd->fbi;
+	mdp5_data = mfd_to_mdp5_data(mfd);
+
+	if (!mdp5_data || !mdp5_data->ctl)
+		return;
 
 	if (!fbi->fix.smem_start || fbi->fix.smem_len == 0 ||
 	     mdp5_data->borderfill_enable) {
@@ -1978,12 +1987,15 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 {
 	int rc;
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-
+	struct mdss_overlay_private *mdp5_data;
 	if (!mfd)
 		return -ENODEV;
 
 	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
+	if (!mdp5_data)
 		return -EINVAL;
 
 	if (!mdp5_data->ctl) {
@@ -2036,15 +2048,16 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 {
 	int rc;
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-
+	struct mdss_overlay_private *mdp5_data;
 	if (!mfd)
 		return -ENODEV;
 
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	if (!mdp5_data->ctl) {
+	mdp5_data = mfd_to_mdp5_data(mfd);
+
+	if (!mdp5_data || !mdp5_data->ctl) {
 		pr_err("ctl not initialized\n");
 		return -ENODEV;
 	}

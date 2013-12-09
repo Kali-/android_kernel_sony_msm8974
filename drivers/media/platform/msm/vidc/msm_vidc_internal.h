@@ -228,7 +228,6 @@ struct msm_vidc_inst {
 	enum msm_vidc_modes flags;
 	struct msm_vidc_core_capability capability;
 	u32 output_alloc_mode_supported;
-	u32 output_alloc_mode;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

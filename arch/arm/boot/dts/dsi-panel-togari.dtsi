@@ -32,6 +32,8 @@
 			qcom,mdss-pan-res = <1080 1920>;
 			somc,mdss-phy-size-mm = <80 143>;
 			qcom,mdss-pan-bpp = <24>;
+			qcom,mdss-pan-width = <80>;
+			qcom,mdss-pan-height = <143>;
 			qcom,mdss-pan-dest = "display_1";
 			qcom,mdss-pan-porch-values = <64 16 136 3 2 2>;
 			qcom,mdss-pan-dsi-mode = <0>;
@@ -152,6 +154,8 @@
 			qcom,mdss-pan-res = <1080 1920>;
 			somc,mdss-phy-size-mm = <80 143>;
 			qcom,mdss-pan-bpp = <24>;
+			qcom,mdss-pan-width = <80>;
+			qcom,mdss-pan-height = <143>;
 			qcom,mdss-pan-dest = "display_1";
 			qcom,mdss-pan-porch-values = <64 16 136 3 2 2>;
 			qcom,mdss-pan-dsi-mode = <0>;
@@ -324,6 +328,8 @@
 			qcom,mdss-pan-res = <1080 1920>;
 			somc,mdss-phy-size-mm = <80 143>;
 			qcom,mdss-pan-bpp = <24>;
+			qcom,mdss-pan-width = <80>;
+			qcom,mdss-pan-height = <143>;
 			qcom,mdss-pan-dest = "display_1";
 			qcom,mdss-pan-porch-values = <64 16 136 3 2 2>;
 			qcom,mdss-pan-dsi-mode = <0>;
@@ -496,6 +502,8 @@
 			qcom,mdss-pan-res = <1080 1920>;
 			somc,mdss-phy-size-mm = <80 143>;
 			qcom,mdss-pan-bpp = <24>;
+			qcom,mdss-pan-width = <80>;
+			qcom,mdss-pan-height = <143>;
 			qcom,mdss-pan-dest = "display_1";
 			qcom,mdss-pan-porch-values = <56 20 136 6 2 6>;
 			qcom,mdss-pan-dsi-mode = <0>;
@@ -949,6 +957,8 @@
 			qcom,mdss-pan-res = <1080 1920>;
 			somc,mdss-phy-size-mm = <80 143>;
 			qcom,mdss-pan-bpp = <24>;
+			qcom,mdss-pan-width = <80>;
+			qcom,mdss-pan-height = <143>;
 			qcom,mdss-pan-dest = "display_1";
 			qcom,mdss-pan-porch-values = <56 20 136 6 2 6>;
 			qcom,mdss-pan-dsi-mode = <0>;

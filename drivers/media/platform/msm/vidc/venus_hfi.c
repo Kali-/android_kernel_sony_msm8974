@@ -1660,6 +1660,7 @@ static int venus_hfi_get_q_size(struct venus_hfi_device *dev,
 	struct vidc_iface_q_info *q_info;
 	u32 write_ptr, read_ptr;
 	u32 rc = 0;
+
 	if (q_index >= VIDC_IFACEQ_NUMQ) {
 		dprintk(VIDC_ERR, "Invalid q index: %d\n", q_index);
 		return -ENOENT;
@@ -1667,10 +1668,11 @@ static int venus_hfi_get_q_size(struct venus_hfi_device *dev,
 
 	q_info = &dev->iface_queues[q_index];
 	if (!q_info) {
-		dprintk(VIDC_ERR, "cannot read shared Q's");
+		dprintk(VIDC_ERR, "cannot read shared Q's\n");
 		return -ENOENT;
 	}
-	queue = (struct hfi_queue_header *) q_info->q_hdr;
+
+	queue = (struct hfi_queue_header *)q_info->q_hdr;
 	if (!queue) {
 		dprintk(VIDC_ERR, "queue not present");
 		return -ENOENT;

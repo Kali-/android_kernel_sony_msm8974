@@ -3029,14 +3029,6 @@ static int venus_hfi_try_clk_gating(struct venus_hfi_device *device)
 	mutex_unlock(&device->write_lock);
 	return rc;
 }
-
-static void venus_hfi_crash_reason(struct hfi_sfr_struct *vsfr)
-{
-	char msg[81];
-	snprintf(msg, sizeof(msg), "SFR Message from FW : %s",
-						vsfr->rg_data);
-}
-
 static void venus_hfi_process_msg_event_notify(
 	struct venus_hfi_device *device, void *packet)
 {
@@ -3054,11 +3046,9 @@ static void venus_hfi_process_msg_event_notify(
 
 		vsfr = (struct hfi_sfr_struct *)
 				device->sfr.align_virtual_addr;
-		if (vsfr) {
+		if (vsfr)
 			dprintk(VIDC_ERR, "SFR Message from FW : %s",
 				vsfr->rg_data);
-			venus_hfi_crash_reason(vsfr);
-		}
 	}
 }
 static void venus_hfi_response_handler(struct venus_hfi_device *device)
@@ -3075,12 +3065,10 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 				__func__);
 			vsfr = (struct hfi_sfr_struct *)
 					device->sfr.align_virtual_addr;
-			if (vsfr) {
+			if (vsfr)
 				dprintk(VIDC_ERR,
 					"SFR Message from FW : %s",
 						vsfr->rg_data);
-				venus_hfi_crash_reason(vsfr);
-			}
 			venus_hfi_process_sys_watchdog_timeout(device);
 		}
 

@@ -1,5 +1,5 @@
 /* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
- * Copyright (C) 2013 Sony Mobile Communications AB.
+ * Copyright (C) 2015 Sony Mobile Communications Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -743,7 +743,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 		}
 
-		if (!conf_array.size) {
+		if ((!conf_array.size) ||
+			(conf_array.size > I2C_USER_REG_DATA_MAX )) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;
@@ -942,7 +943,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 		}
 
-		if (!conf_array.size) {
+		if ((!conf_array.size) ||
+			(conf_array.size > I2C_USER_REG_DATA_MAX )) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;

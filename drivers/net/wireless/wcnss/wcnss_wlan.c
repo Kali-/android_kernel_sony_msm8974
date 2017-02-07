@@ -1,5 +1,4 @@
 /* Copyright (c) 2011-2013,2015 The Linux Foundation. All rights reserved.
- * Copyright (C) 2015 Sony Mobile Communications Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +56,7 @@
 #define WCNSS_ENABLE_PC_LATENCY	PM_QOS_DEFAULT_VALUE
 #define WCNSS_PM_QOS_TIMEOUT	15000
 #define WAIT_FOR_CBC_IND     2
+#define IS_CAL_DATA_PRESENT     0
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
@@ -946,11 +946,8 @@ void wcnss_reset_intr(void)
 {
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		wcnss_pronto_log_debug_regs();
-#ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
 		if (wcnss_get_mux_control())
 			wcnss_log_iris_regs();
-
-#endif
 		wmb();
 		__raw_writel(1 << 16, penv->fiq_reg);
 	} else {
@@ -2258,7 +2255,7 @@ static void wcnss_nvbin_dnld_main(struct work_struct *worker)
 	if (!FW_CALDATA_CAPABLE())
 		goto nv_download;
 
-	if (!penv->fw_cal_available && WCNSS_CONFIG_UNSPECIFIED
+	if (!penv->fw_cal_available && IS_CAL_DATA_PRESENT
 		!= has_calibrated_data && !penv->user_cal_available) {
 		while (!penv->user_cal_available && retry++ < 5)
 			msleep(500);

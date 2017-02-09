@@ -1232,6 +1232,7 @@ static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
 				 struct genl_info *info)
 {
 	enum nl80211_channel_type channel_type = NL80211_CHAN_NO_HT;
+	enum nl80211_chan_width chan_width = NL80211_CHAN_WIDTH_20_NOHT;
 	u32 freq;
 	int result;
 
@@ -1249,6 +1250,26 @@ static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
 		    channel_type != NL80211_CHAN_HT40PLUS &&
 		    channel_type != NL80211_CHAN_HT40MINUS)
 			return -EINVAL;
+		if (info->attrs[NL80211_ATTR_CHANNEL_WIDTH]) {
+			chan_width = nla_get_u32(info->attrs[
+			NL80211_ATTR_CHANNEL_WIDTH]);
+			switch (chan_width) {
+			case NL80211_CHAN_NO_HT:
+				chan_width = NL80211_CHAN_WIDTH_20_NOHT;
+				break;
+			case NL80211_CHAN_HT20:
+				chan_width = NL80211_CHAN_WIDTH_20;
+				break;
+			case NL80211_CHAN_HT40PLUS:
+				chan_width = NL80211_CHAN_WIDTH_40;
+				break;
+			case NL80211_CHAN_HT40MINUS:
+				chan_width = NL80211_CHAN_WIDTH_40;
+				break;
+			default:
+				chan_width = NL80211_CHAN_WIDTH_80;
+			}
+		}
 	}
 
 	freq = nla_get_u32(info->attrs[NL80211_ATTR_WIPHY_FREQ]);
@@ -1256,10 +1277,12 @@ static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
 	mutex_lock(&rdev->devlist_mtx);
 	if (wdev) {
 		wdev_lock(wdev);
-		result = cfg80211_set_freq(rdev, wdev, freq, channel_type);
+		result = cfg80211_set_freq(
+			rdev, wdev, freq, channel_type, chan_width);
 		wdev_unlock(wdev);
 	} else {
-		result = cfg80211_set_freq(rdev, NULL, freq, channel_type);
+		result = cfg80211_set_freq(
+			rdev, NULL, freq, channel_type, chan_width);
 	}
 	mutex_unlock(&rdev->devlist_mtx);
 

@@ -3,7 +3,7 @@
  *
  * Support NAN (Neighbor Awareness Networking) and RTT (Round Trip Time)
  *
- * Copyright (C) 2015, Broadcom Corporation
+ * Copyright (C) 2016, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -54,17 +54,22 @@
 #define PUB_PR_PREFIX		"PUB_PR="		/* publish period */
 #define PUB_INT_PREFIX		"PUB_INT="		/* publish interval (ttl) */
 #define CLUS_ID_PREFIX		"CLUS_ID="		/* cluster id */
+#define IF_ADDR_PREFIX		"IF_ADDR="		/* IF address */
 #define MAC_ADDR_PREFIX		"MAC_ADDR="		/* mac address */
 #define SVC_HASH_PREFIX		"SVC_HASH="		/* service hash */
 #define SVC_INFO_PREFIX		"SVC_INFO="		/* service information */
 #define HOP_COUNT_PREFIX	"HOP_COUNT="	/* hop count */
 #define MASTER_PREF_PREFIX	"MASTER_PREF="	/* master preference */
+#define ACTIVE_OPTION		"ACTIVE"		/* Active Subscribe. */
+#define SOLICITED_OPTION	"SOLICITED"		/* Solicited Publish. */
+#define UNSOLICITED_OPTION	"UNSOLICITED"	/* Unsolicited Publish. */
 /* anchor master beacon transmission time */
 #define AMBTT_PREFIX		"AMBTT="
 /* passive scan period for cluster merge */
 #define SCAN_PERIOD_PREFIX	"SCAN_PERIOD="
 /* passive scan interval for cluster merge */
 #define SCAN_INTERVAL_PREFIX	"SCAN_INTERVAL="
+#define BCN_INTERVAL_PREFIX		"BCN_INTERVAL="
 
 typedef struct nan_str_data {
 	u8 *data;
@@ -81,12 +86,16 @@ typedef struct nan_cmd_data {
 	nan_str_data_t svc_hash;		/* service hash */
 	nan_str_data_t svc_info;		/* service information */
 	struct ether_addr mac_addr;		/* mac address */
+	struct ether_addr clus_id;		/* cluster id */
+	struct ether_addr if_addr;		/* if addr */
+	u32 beacon_int;					/* beacon interval */
 	u32 pub_int;					/* publish interval (ttl) */
 	u32 pub_pr;						/* publish period */
 	u32 bmap;						/* bitmap */
 	u32 role;						/* role */
 	u16 pub_id;						/* publisher id */
 	u16 sub_id;						/* subscriber id */
+	uint32 flags;					/* Flag bits */
 	u16 dw_len;						/* discovery window length */
 	u16 master_pref;				/* master preference */
 	chanspec_t chanspec;			/* channel */
@@ -128,7 +137,7 @@ typedef struct wl_nan_tlv_data {
 	nan_scan_params_t scan_params;		/* scan_param */
 } wl_nan_tlv_data_t;
 
-extern int wl_cfgnan_set_vars_cbfn(void *ctx, void **tlv_buf,
+extern int wl_cfgnan_set_vars_cbfn(void *ctx, uint8 *tlv_buf,
 	uint16 type, uint16 len);
 extern int wl_cfgnan_enable_events(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg);

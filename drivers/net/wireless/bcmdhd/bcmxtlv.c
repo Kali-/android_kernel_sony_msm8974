@@ -1,7 +1,7 @@
 /*
  * Driver O/S-independent utility routines
  *
- * Copyright (C) 2015, Broadcom Corporation
+ * Copyright (C) 2016, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -19,13 +19,14 @@
 #include <stdarg.h>
 
 #ifdef BCMDRIVER
-#include <osl.h>
+	#include <osl.h>
 #else /* !BCMDRIVER */
-#include <stdio.h>
-#include <string.h>
+	#include <stdlib.h> /* AS!!! */
+	#include <stdio.h>
+	#include <string.h>
 #include <stdlib.h>
 #ifndef ASSERT
-#define ASSERT(exp)
+	#define ASSERT(exp)
 #endif
 inline void* MALLOCZ(void *o, size_t s) { BCM_REFERENCE(o); return calloc(1, s); }
 inline void MFREE(void *o, void *p, size_t s) { BCM_REFERENCE(o); BCM_REFERENCE(s); free(p); }
@@ -34,137 +35,136 @@ inline void MFREE(void *o, void *p, size_t s) { BCM_REFERENCE(o); BCM_REFERENCE(
 #include <bcmendian.h>
 #include <bcmutils.h>
 
+static INLINE int bcm_xtlv_size_for_data(int dlen, bcm_xtlv_opts_t opts)
+{
+	return ((opts & BCM_XTLV_OPTION_ALIGN32) ? ALIGN_SIZE(dlen + BCM_XTLV_HDR_SIZE, 4)
+		: (dlen + BCM_XTLV_HDR_SIZE));
+}
+
 bcm_xtlv_t *
-bcm_next_xtlv(bcm_xtlv_t *elt, int *buflen)
+bcm_next_xtlv(bcm_xtlv_t *elt, int *buflen, bcm_xtlv_opts_t opts)
 {
 	int sz;
-
-	/* validate current elt */
-	if (!bcm_valid_xtlv(elt, *buflen))
-		return NULL;
-
 	/* advance to next elt */
-	sz = BCM_XTLV_SIZE(elt);
+	sz = BCM_XTLV_SIZE(elt, opts);
 	elt = (bcm_xtlv_t*)((uint8 *)elt + sz);
 	*buflen -= sz;
 
 	/* validate next elt */
-	if (!bcm_valid_xtlv(elt, *buflen))
+	if (!bcm_valid_xtlv(elt, *buflen, opts))
 		return NULL;
 
 	return elt;
 }
 
-struct bcm_tlvbuf *
-bcm_xtlv_buf_alloc(void *osh, uint16 len)
+int
+bcm_xtlv_buf_init(bcm_xtlvbuf_t *tlv_buf, uint8 *buf, uint16 len, bcm_xtlv_opts_t opts)
 {
-	struct bcm_tlvbuf *tbuf = MALLOCZ(osh, sizeof(struct bcm_tlvbuf) + len);
-	if (tbuf == NULL) {
-		return NULL;
-	}
-	tbuf->size = len;
-	tbuf->head = tbuf->buf = (uint8 *)(tbuf + 1);
-	return tbuf;
+	if (!tlv_buf || !buf || !len)
+		return BCME_BADARG;
+
+	tlv_buf->opts = opts;
+	tlv_buf->size = len;
+	tlv_buf->head = buf;
+	tlv_buf->buf  = buf;
+	return BCME_OK;
 }
-void
-bcm_xtlv_buf_free(void *osh, struct bcm_tlvbuf *tbuf)
-{
-	if (tbuf == NULL)
-		return;
-	MFREE(osh, tbuf, (tbuf->size + sizeof(struct bcm_tlvbuf)));
-}
+
 uint16
-bcm_xtlv_buf_len(struct bcm_tlvbuf *tbuf)
+bcm_xtlv_buf_len(bcm_xtlvbuf_t *tbuf)
 {
 	if (tbuf == NULL) return 0;
 	return (tbuf->buf - tbuf->head);
 }
 uint16
-bcm_xtlv_buf_rlen(struct bcm_tlvbuf *tbuf)
+bcm_xtlv_buf_rlen(bcm_xtlvbuf_t *tbuf)
 {
 	if (tbuf == NULL) return 0;
 	return tbuf->size - bcm_xtlv_buf_len(tbuf);
 }
 uint8 *
-bcm_xtlv_buf(struct bcm_tlvbuf *tbuf)
+bcm_xtlv_buf(bcm_xtlvbuf_t *tbuf)
 {
 	if (tbuf == NULL) return NULL;
 	return tbuf->buf;
 }
 uint8 *
-bcm_xtlv_head(struct bcm_tlvbuf *tbuf)
+bcm_xtlv_head(bcm_xtlvbuf_t *tbuf)
 {
 	if (tbuf == NULL) return NULL;
 	return tbuf->head;
 }
 int
-bcm_xtlv_put_data(struct bcm_tlvbuf *tbuf, uint16 type, const void *data, uint16 dlen)
+bcm_xtlv_put_data(bcm_xtlvbuf_t *tbuf, uint16 type, const void *data, uint16 dlen)
 {
 	bcm_xtlv_t *xtlv;
-	if (tbuf == NULL || bcm_xtlv_buf_rlen(tbuf) < (dlen + BCM_XTLV_HDR_SIZE))
+	int size;
+
+	if (tbuf == NULL)
 		return BCME_BADARG;
+	size = bcm_xtlv_size_for_data(dlen, tbuf->opts);
+	if (bcm_xtlv_buf_rlen(tbuf) < size)
+		return BCME_NOMEM;
 	xtlv = (bcm_xtlv_t *)bcm_xtlv_buf(tbuf);
 	xtlv->id = htol16(type);
 	xtlv->len = htol16(dlen);
 	memcpy(xtlv->data, data, dlen);
-	tbuf->buf += BCM_XTLV_SIZE(xtlv);
+	tbuf->buf += size;
 	return BCME_OK;
 }
 int
-bcm_xtlv_put_8(struct bcm_tlvbuf *tbuf, uint16 type, const int8 data)
+bcm_xtlv_put_8(bcm_xtlvbuf_t *tbuf, uint16 type, const int8 data)
 {
 	bcm_xtlv_t *xtlv;
-	if (tbuf == NULL || bcm_xtlv_buf_rlen(tbuf) < (1 + BCM_XTLV_HDR_SIZE))
+	int size;
+
+	if (tbuf == NULL)
 		return BCME_BADARG;
+	size = bcm_xtlv_size_for_data(1, tbuf->opts);
+	if (bcm_xtlv_buf_rlen(tbuf) < size)
+		return BCME_NOMEM;
 	xtlv = (bcm_xtlv_t *)bcm_xtlv_buf(tbuf);
 	xtlv->id = htol16(type);
 	xtlv->len = htol16(sizeof(data));
 	xtlv->data[0] = data;
-	tbuf->buf += BCM_XTLV_SIZE(xtlv);
+	tbuf->buf += size;
 	return BCME_OK;
 }
 int
-bcm_xtlv_put_16(struct bcm_tlvbuf *tbuf, uint16 type, const int16 data)
+bcm_xtlv_put_16(bcm_xtlvbuf_t *tbuf, uint16 type, const int16 data)
 {
 	bcm_xtlv_t *xtlv;
-	if (tbuf == NULL || bcm_xtlv_buf_rlen(tbuf) < (2 + BCM_XTLV_HDR_SIZE))
+	int size;
+
+	if (tbuf == NULL)
 		return BCME_BADARG;
+	size = bcm_xtlv_size_for_data(2, tbuf->opts);
+	if (bcm_xtlv_buf_rlen(tbuf) < size)
+		return BCME_NOMEM;
+
 	xtlv = (bcm_xtlv_t *)bcm_xtlv_buf(tbuf);
 	xtlv->id = htol16(type);
 	xtlv->len = htol16(sizeof(data));
 	htol16_ua_store(data, xtlv->data);
-	tbuf->buf += BCM_XTLV_SIZE(xtlv);
+	tbuf->buf += size;
 	return BCME_OK;
 }
 int
-bcm_xtlv_put_32(struct bcm_tlvbuf *tbuf, uint16 type, const int32 data)
+bcm_xtlv_put_32(bcm_xtlvbuf_t *tbuf, uint16 type, const int32 data)
 {
 	bcm_xtlv_t *xtlv;
-	if (tbuf == NULL || bcm_xtlv_buf_rlen(tbuf) < (4 + BCM_XTLV_HDR_SIZE))
+	int size;
+
+	if (tbuf == NULL)
 		return BCME_BADARG;
+	size = bcm_xtlv_size_for_data(4, tbuf->opts);
+	if (bcm_xtlv_buf_rlen(tbuf) < size)
+		return BCME_NOMEM;
 	xtlv = (bcm_xtlv_t *)bcm_xtlv_buf(tbuf);
 	xtlv->id = htol16(type);
 	xtlv->len = htol16(sizeof(data));
 	htol32_ua_store(data, xtlv->data);
-	tbuf->buf += BCM_XTLV_SIZE(xtlv);
-	return BCME_OK;
-}
-
-int
-bcm_skip_xtlv(void **tlv_buf)
-{
-	bcm_xtlv_t *ptlv = *tlv_buf;
-	uint16 len;
-	uint16 type;
-
-	ASSERT(ptlv);
-	/* tlv headr is always packed in LE order */
-	len = ltoh16(ptlv->len);
-	type = ltoh16(ptlv->id);
-
-	printf("xtlv_skip: Skipping tlv [type:%d,len:%d]\n", type, len);
-
-	*tlv_buf += BCM_XTLV_SIZE(ptlv);
+	tbuf->buf += size;
 	return BCME_OK;
 }
 
@@ -175,9 +175,10 @@ bcm_skip_xtlv(void **tlv_buf)
  *  caller's resposible for dst space check
  */
 int
-bcm_unpack_xtlv_entry(void **tlv_buf, uint16 xpct_type, uint16 xpct_len, void *dst)
+bcm_unpack_xtlv_entry(uint8 **tlv_buf, uint16 xpct_type, uint16 xpct_len, void *dst,
+	bcm_xtlv_opts_t opts)
 {
-	bcm_xtlv_t *ptlv = *tlv_buf;
+	bcm_xtlv_t *ptlv = (bcm_xtlv_t *)*tlv_buf;
 	uint16 len;
 	uint16 type;
 
@@ -185,7 +186,7 @@ bcm_unpack_xtlv_entry(void **tlv_buf, uint16 xpct_type, uint16 xpct_len, void *d
 	/* tlv headr is always packed in LE order */
 	len = ltoh16(ptlv->len);
 	type = ltoh16(ptlv->id);
-	if (len == 0) {
+	if	(len == 0) {
 		/* z-len tlv headers: allow, but don't process */
 		printf("z-len, skip unpack\n");
 	} else  {
@@ -198,7 +199,7 @@ bcm_unpack_xtlv_entry(void **tlv_buf, uint16 xpct_type, uint16 xpct_len, void *d
 		/* copy tlv record to caller's buffer */
 		memcpy(dst, ptlv->data, ptlv->len);
 	}
-	*tlv_buf += BCM_XTLV_SIZE(ptlv);
+	*tlv_buf += BCM_XTLV_SIZE(ptlv, opts);
 	return BCME_OK;
 }
 
@@ -208,18 +209,21 @@ bcm_unpack_xtlv_entry(void **tlv_buf, uint16 xpct_type, uint16 xpct_len, void *d
  *  buflen is used for tlv_buf space check
  */
 int
-bcm_pack_xtlv_entry(void **tlv_buf, uint16 *buflen, uint16 type, uint16 len, void *src)
+bcm_pack_xtlv_entry(uint8 **tlv_buf, uint16 *buflen, uint16 type, uint16 len, void *src,
+	bcm_xtlv_opts_t opts)
 {
-	bcm_xtlv_t *ptlv = *tlv_buf;
-
-	/* copy data from tlv buffer to dst provided by user */
+	bcm_xtlv_t *ptlv = (bcm_xtlv_t *)*tlv_buf;
+	int size;
 
 	ASSERT(ptlv);
 	ASSERT(src);
 
-	if ((BCM_XTLV_HDR_SIZE + len) > *buflen) {
+	size = bcm_xtlv_size_for_data(len, opts);
+
+	/* copy data from tlv buffer to dst provided by user */
+	if (size > *buflen) {
 		printf("bcm_pack_xtlv_entry: no space tlv_buf: requested:%d, available:%d\n",
-		 ((int)BCM_XTLV_HDR_SIZE + len), *buflen);
+			size, *buflen);
 		return BCME_BADLEN;
 	}
 	ptlv->id = htol16(type);
@@ -229,9 +233,9 @@ bcm_pack_xtlv_entry(void **tlv_buf, uint16 *buflen, uint16 type, uint16 len, voi
 	memcpy(ptlv->data, src, len);
 
 	/* advance callers pointer to tlv buff */
-	*tlv_buf += BCM_XTLV_SIZE(ptlv);
+	*tlv_buf += size;
 	/* decrement the len */
-	*buflen -=  BCM_XTLV_SIZE(ptlv);
+	*buflen -= size;
 	return BCME_OK;
 }
 
@@ -240,35 +244,80 @@ bcm_pack_xtlv_entry(void **tlv_buf, uint16 *buflen, uint16 type, uint16 len, voi
  *  to set function one call per found tlv record
  */
 int
-bcm_unpack_xtlv_buf(void *ctx, void *tlv_buf, uint16 buflen, bcm_set_var_from_tlv_cbfn_t *cbfn)
+bcm_unpack_xtlv_buf(void *ctx, uint8 *tlv_buf, uint16 buflen, bcm_xtlv_opts_t opts,
+	bcm_xtlv_unpack_cbfn_t *cbfn)
 {
 	uint16 len;
 	uint16 type;
 	int res = 0;
-	bcm_xtlv_t *ptlv = tlv_buf;
+	int size;
+	bcm_xtlv_t *ptlv;
 	int sbuflen = buflen;
 
-	ASSERT(ptlv);
-	ASSERT(cbfn);
+	ASSERT(!buflen || tlv_buf);
+	ASSERT(!buflen || cbfn);
 
-	while (sbuflen >= 0) {
-		ptlv = tlv_buf;
+	while (sbuflen >= (int)BCM_XTLV_HDR_SIZE) {
+		ptlv = (bcm_xtlv_t *)tlv_buf;
 
 		/* tlv header is always packed in LE order */
 		len = ltoh16(ptlv->len);
-		if (len == 0)	/* can't be zero */
-			break;
 		type = ltoh16(ptlv->id);
 
-		sbuflen -= (BCM_XTLV_HDR_SIZE + len);
+		size = bcm_xtlv_size_for_data(len, opts);
 
+		sbuflen -= size;
 		/* check for possible buffer overrun */
 		if (sbuflen < 0)
 			break;
 
-		if ((res = cbfn(ctx, &tlv_buf, type, len)) != BCME_OK)
+		if ((res = cbfn(ctx, ptlv->data, type, len)) != BCME_OK)
 			break;
+		tlv_buf += size;
 	}
+	return res;
+}
+
+int
+bcm_pack_xtlv_buf(void *ctx, void *tlv_buf, uint16 buflen, bcm_xtlv_opts_t opts,
+	bcm_pack_xtlv_next_info_cbfn_t get_next, bcm_pack_xtlv_pack_next_cbfn_t pack_next,
+	int *outlen)
+{
+	int res = BCME_OK;
+	uint16 tlv_id;
+	uint16 tlv_len;
+	uint8 *startp;
+	uint8 *endp;
+	uint8 *buf;
+	bool more;
+	int size;
+
+	ASSERT(get_next && pack_next);
+
+	buf = (uint8 *)tlv_buf;
+	startp = buf;
+	endp = (uint8 *)buf + buflen;
+	more = TRUE;
+	while (more && (buf < endp)) {
+		more = get_next(ctx, &tlv_id, &tlv_len);
+		size = bcm_xtlv_size_for_data(tlv_len, opts);
+		if ((buf + size) >= endp) {
+			res = BCME_BUFTOOSHORT;
+			goto done;
+		}
+
+		htol16_ua_store(tlv_id, buf);
+		htol16_ua_store(tlv_len, buf + sizeof(tlv_id));
+		pack_next(ctx, tlv_id, tlv_len, buf + BCM_XTLV_HDR_SIZE);
+		buf += size;
+	}
+
+	if (more)
+		res = BCME_BUFTOOSHORT;
+
+done:
+	if (outlen)
+		*outlen = buf - startp;
 	return res;
 }
 
@@ -276,15 +325,16 @@ bcm_unpack_xtlv_buf(void *ctx, void *tlv_buf, uint16 buflen, bcm_set_var_from_tl
  *  pack xtlv buffer from memory according to xtlv_desc_t
  */
 int
-bcm_pack_xtlv_buf_from_mem(void **tlv_buf, uint16 *buflen, xtlv_desc_t *items)
+bcm_pack_xtlv_buf_from_mem(void **tlv_buf, uint16 *buflen, xtlv_desc_t *items,
+	bcm_xtlv_opts_t opts)
 {
 	int res = 0;
-	void *ptlv = *tlv_buf;
+	uint8 *ptlv = (uint8 *)*tlv_buf;
 
-	while (items->len != 0) {
-		if ((res = bcm_pack_xtlv_entry(&ptlv,
+	while (items->type != 0) {
+		if ((items->len > 0) &&	(res = bcm_pack_xtlv_entry(&ptlv,
 			buflen, items->type,
-			items->len, items->ptr) != BCME_OK)) {
+			items->len, items->ptr, opts) != BCME_OK)) {
 			break;
 		}
 		items++;
@@ -298,90 +348,51 @@ bcm_pack_xtlv_buf_from_mem(void **tlv_buf, uint16 *buflen, xtlv_desc_t *items)
  *
  */
 int
-bcm_unpack_xtlv_buf_to_mem(void *tlv_buf, int *buflen, xtlv_desc_t *items)
+bcm_unpack_xtlv_buf_to_mem(void *tlv_buf, int *buflen, xtlv_desc_t *items, bcm_xtlv_opts_t opts)
 {
-	int res = 0;
-	bcm_xtlv_t *elt = tlv_buf;
+	int res = BCME_OK;
+	bcm_xtlv_t *elt;
 
-	/*  iterate through tlvs in the buffer  */
-	while  ((elt = bcm_next_xtlv(elt, buflen)) != NULL) {
+	elt =  bcm_valid_xtlv((bcm_xtlv_t *)tlv_buf, *buflen, opts) ? (bcm_xtlv_t *)tlv_buf : NULL;
+	if (!elt || !items) {
+		res = BCME_BADARG;
+		return res;
+	}
 
+	for (; elt != NULL && res == BCME_OK; elt = bcm_next_xtlv(elt, buflen, opts)) {
 		/*  find matches in desc_t items  */
 		xtlv_desc_t *dst_desc = items;
-		while (dst_desc->len != 0) {
+		uint16 len = ltoh16(elt->len);
 
-			if ((elt->id == dst_desc->type) &&
-				(elt->len == dst_desc->len)) {
-				/* copy xtlv data to mem dst */
-				memcpy(dst_desc->ptr, elt->data, elt->len);
-				if ((*buflen -= elt->len) < 0) {
-					printf("%s:Error: dst buf overrun\n", __FUNCTION__);
-					return BCME_NOMEM;
-				}
+		while (dst_desc->type != 0) {
+			if (ltoh16(elt->id) != dst_desc->type) {
+				dst_desc++;
+				continue;
 			}
+			if (len != dst_desc->len)
+				res = BCME_BADLEN;
+			else
+				memcpy(dst_desc->ptr, elt->data, len);
+			break;
 		}
+		if (dst_desc->type == 0)
+			res = BCME_NOTFOUND;
 	}
+
+	if (*buflen != 0 && res == BCME_OK)
+		res = BCME_BUFTOOSHORT;
+
 	return res;
 }
 
-/*
- *  packs user data (in hex string) into tlv record
- *  advances tlv pointer to next xtlv slot
- *  buflen is used for tlv_buf space check
- */
-static int
-get_ie_data(uchar *data_str, uchar *ie_data, int len)
+int bcm_xtlv_size(const bcm_xtlv_t *elt, bcm_xtlv_opts_t opts)
 {
-	uchar *src, *dest;
-	uchar val;
-	int idx;
-	char hexstr[3];
+	int size; /* entire size of the XTLV including header, data, and optional padding */
+	int len; /* XTLV's value real length wthout padding */
 
-	src = data_str;
-	dest = ie_data;
+	len = BCM_XTLV_LEN(elt);
 
-	for (idx = 0; idx < len; idx++) {
-		hexstr[0] = src[0];
-		hexstr[1] = src[1];
-		hexstr[2] = '\0';
+	size = bcm_xtlv_size_for_data(len, opts);
 
-#ifdef BCMDRIVER
-		val = (uchar) simple_strtoul(hexstr, NULL, 16);
-#else
-		val = (uchar) strtoul(hexstr, NULL, 16);
-#endif
-
-		*dest++ = val;
-		src += 2;
-	}
-
-	return 0;
-}
-
-int
-bcm_pack_xtlv_entry_from_hex_string(void **tlv_buf, uint16 *buflen, uint16 type, char *hex)
-{
-	bcm_xtlv_t *ptlv = *tlv_buf;
-	uint16 len = strlen(hex)/2;
-
-	/* copy data from tlv buffer to dst provided by user */
-
-	if ((BCM_XTLV_HDR_SIZE + len) > *buflen) {
-		printf("bcm_pack_xtlv_entry: no space tlv_buf: requested:%d, available:%d\n",
-			((int)BCM_XTLV_HDR_SIZE + len), *buflen);
-		return BCME_BADLEN;
-	}
-	ptlv->id = htol16(type);
-	ptlv->len = htol16(len);
-
-	/* copy callers data */
-	if (get_ie_data((uchar*)hex, ptlv->data, len)) {
-		return BCME_BADARG;
-	}
-
-	/* advance callers pointer to tlv buff */
-	*tlv_buf += BCM_XTLV_SIZE(ptlv);
-	/* decrement the len */
-	*buflen -=  BCM_XTLV_SIZE(ptlv);
-	return BCME_OK;
+	return size;
 }

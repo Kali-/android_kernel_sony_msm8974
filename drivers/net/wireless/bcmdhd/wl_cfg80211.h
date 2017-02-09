@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 driver
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfg80211.h 571419 2015-07-15 03:53:57Z $
+ * $Id: wl_cfg80211.h 596861 2015-11-03 08:54:58Z $
  */
 
 #ifndef _wl_cfg80211_h_
@@ -596,6 +596,7 @@ struct bcm_cfg80211 {
 #ifdef WLFBT
 	uint8 fbt_key[FBT_KEYLEN];
 #endif
+	bool nan_enable;
 #ifdef WLTDLS
 	u8 *tdls_mgmt_frame;
 	u32 tdls_mgmt_frame_len;

@@ -3,7 +3,7 @@
  * Contents are wifi-specific, used by any kernel or app-level
  * software that might want wifi things as it grows.
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -967,6 +967,46 @@ wf_channel2mhz(uint ch, uint start_factor)
 		freq = ch * 5 + start_factor / 2;
 
 	return freq;
+}
+
+static const uint16 sidebands[] = {
+	WL_CHANSPEC_CTL_SB_LLL, WL_CHANSPEC_CTL_SB_LLU,
+	WL_CHANSPEC_CTL_SB_LUL, WL_CHANSPEC_CTL_SB_LUU,
+	WL_CHANSPEC_CTL_SB_ULL, WL_CHANSPEC_CTL_SB_ULU,
+	WL_CHANSPEC_CTL_SB_UUL, WL_CHANSPEC_CTL_SB_UUU
+};
+
+/*
+ * Returns the chanspec 80Mhz channel corresponding to the following input
+ * parameters
+ *
+ *	primary_channel - primary 20Mhz channel
+ *	center_channel   - center frequecny of the 80Mhz channel
+ *
+ * The center_channel can be one of {42, 58, 106, 122, 138, 155}
+ *
+ * returns INVCHANSPEC in case of error
+ */
+chanspec_t
+wf_chspec_80(uint8 center_channel, uint8 primary_channel)
+{
+
+	chanspec_t chanspec = INVCHANSPEC;
+	chanspec_t chanspec_cur;
+	uint i;
+
+	for (i = 0; i < WF_NUM_SIDEBANDS_80MHZ; i++) {
+		chanspec_cur = CH80MHZ_CHSPEC(center_channel, sidebands[i]);
+		if (primary_channel == wf_chspec_ctlchan(chanspec_cur)) {
+			chanspec = chanspec_cur;
+			break;
+		}
+	}
+	/* If the loop ended early, we are good, otherwise we did not
+	* find a 80MHz chanspec with the given center_channel that had a primary channel
+	*matching the given primary_channel.
+	*/
+	return chanspec;
 }
 
 /*

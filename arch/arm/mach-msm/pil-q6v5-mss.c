@@ -26,6 +26,7 @@
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/of_gpio.h>
+#include <linux/string.h>
 
 #include <mach/subsystem_restart.h>
 #include <mach/clk.h>

@@ -3,7 +3,7 @@
  *
  * Support NAN (Neighbor Awareness Networking) and RTT (Round Trip Time)
  *
- * Copyright (C) 2015, Broadcom Corporation
+ * Copyright (C) 2016, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -105,22 +105,17 @@ static char nan_event_name[][NAN_EVENT_NAME_MAX_LEN] = {
 };
 
 int
-wl_cfgnan_set_vars_cbfn(void *ctx, void **tlv_buf, uint16 type, uint16 len)
+wl_cfgnan_set_vars_cbfn(void *ctx, uint8 *buf, uint16 type, uint16 len)
 {
 	wl_nan_tlv_data_t *ndata = ((wl_nan_tlv_data_t *)(ctx));
-	bcm_xtlv_t *ptlv;
-	struct ether_addr mac;
 	int ret = BCME_OK;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
-	uint8 uv8;
-	char buf[64];
 
 	WL_DBG((" enter, xtlv_type: 0x%x \n", type));
 
 	switch (type) {
 	case WL_NAN_XTLV_ENABLE:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_ENABLE,
-			sizeof(uv8), &ndata->enabled);
+		memcpy(&ndata->enabled, buf, len);
 		break;
 	case WL_NAN_XTLV_MASTER_PREF:
 		/*
@@ -129,27 +124,20 @@ wl_cfgnan_set_vars_cbfn(void *ctx, void **tlv_buf, uint16 type, uint16 len)
 		 * masterpref: val & 0x0ff
 		 * rnd_factor: val >> 8
 		 */
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_MASTER_PREF,
-			sizeof(uint16), &ndata->master_pref);
+		memcpy(&ndata->master_pref, buf, len);
 		break;
 	case WL_NAN_XTLV_IF_ADDR:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_IF_ADDR,
-			ETHER_ADDR_LEN, &mac);
-		memcpy(&ndata->mac_addr, &mac, ETHER_ADDR_LEN);
+		memcpy(&ndata->mac_addr, buf, len);
 		break;
 	case WL_NAN_XTLV_CLUSTER_ID:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_CLUSTER_ID,
-			ETHER_ADDR_LEN, &mac);
-		memcpy(&ndata->clus_id, &mac, ETHER_ADDR_LEN);
+		memcpy(&ndata->clus_id, buf, len);
 		break;
 	case WL_NAN_XTLV_ROLE:
 		/*  nan device role, master, master-sync nosync etc  */
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_ROLE, 4,
-			&ndata->dev_role);
+		memcpy(&ndata->dev_role, buf, len);
 		break;
 	case WL_NAN_XTLV_MAC_CHANSPEC:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_MAC_CHANSPEC,
-			sizeof(chanspec_t), &ndata->chanspec);
+		memcpy(&ndata->chanspec, buf, len);
 		if (wf_chspec_valid(ndata->chanspec)) {
 			wf_chspec_ntoa(ndata->chanspec, buf);
 			WL_DBG((" chanspec: %s 0x%x \n", buf, ndata->chanspec));
@@ -158,50 +146,37 @@ wl_cfgnan_set_vars_cbfn(void *ctx, void **tlv_buf, uint16 type, uint16 len)
 		}
 		break;
 	case WL_NAN_XTLV_MAC_AMR:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_MAC_AMR,
-			NAN_MASTER_RANK_LEN, buf);
-		memcpy(ndata->amr, buf, NAN_MASTER_RANK_LEN);
+		memcpy(&ndata->amr, buf, len);
 		break;
 	case WL_NAN_XTLV_MAC_AMBTT:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_MAC_AMBTT,
-			sizeof(uint32), &ndata->ambtt);
+		memcpy(&ndata->ambtt, buf, len);
 		break;
 	case WL_NAN_XTLV_MAC_HOPCNT:
-		ret = bcm_unpack_xtlv_entry(tlv_buf,
-			WL_NAN_XTLV_MAC_HOPCNT, sizeof(uint8), &ndata->hop_count);
+		memcpy(&ndata->hop_count, buf, len);
 		break;
 	case WL_NAN_XTLV_INSTANCE_ID:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_INSTANCE_ID,
-			sizeof(wl_nan_instance_id_t), &ndata->inst_id);
+		memcpy(&ndata->inst_id, buf, len);
 		break;
 	case WL_NAN_XTLV_SVC_NAME:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_SVC_NAME,
-			WL_NAN_SVC_HASH_LEN, ndata->svc_name);
+		memcpy(&ndata->svc_name, buf, len);
 		break;
 	case WL_NAN_XTLV_SVC_PARAMS:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_SVC_PARAMS,
-			sizeof(wl_nan_disc_params_t), &ndata->params);
+		memcpy(&ndata->params, buf, len);
 		break;
 	case WL_NAN_XTLV_MAC_STATUS:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_MAC_STATUS,
-			sizeof(wl_nan_status_t), &ndata->nstatus);
+		memcpy(&ndata->nstatus, buf, len);
 		break;
 	case WL_NAN_XTLV_PUBLR_ID:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_PUBLR_ID,
-			sizeof(uint8), &ndata->pub_id);
+		memcpy(&ndata->pub_id, buf, len);
 		break;
 	case WL_NAN_XTLV_SUBSCR_ID:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_SUBSCR_ID,
-			sizeof(uint8), &ndata->sub_id);
+		memcpy(&ndata->sub_id, buf, len);
 		break;
 	case WL_NAN_XTLV_MAC_ADDR:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_MAC_ADDR,
-			ETHER_ADDR_LEN, &mac);
-		memcpy(&ndata->mac_addr, &mac, ETHER_ADDR_LEN);
+		memcpy(&ndata->mac_addr, buf, len);
 		break;
 	case WL_NAN_XTLV_VNDR:
-		ptlv = *tlv_buf;
-		ndata->vend_info.dlen = BCM_XTLV_LEN(ptlv);
+		ndata->vend_info.dlen = len;
 		ndata->vend_info.data = kzalloc(ndata->vend_info.dlen, kflags);
 		if (!ndata->vend_info.data) {
 			WL_ERR((" memory allocation failed \n"));
@@ -209,13 +184,11 @@ wl_cfgnan_set_vars_cbfn(void *ctx, void **tlv_buf, uint16 type, uint16 len)
 			goto fail;
 		}
 		if (ndata->vend_info.data && ndata->vend_info.dlen) {
-			ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_VNDR,
-				ndata->vend_info.dlen, ndata->vend_info.data);
+			memcpy(ndata->vend_info.data, buf, len);
 		}
 		break;
 	case WL_NAN_XTLV_SVC_INFO:
-		ptlv = *tlv_buf;
-		ndata->svc_info.dlen = BCM_XTLV_LEN(ptlv);
+		ndata->svc_info.dlen = len;
 		ndata->svc_info.data = kzalloc(ndata->svc_info.dlen, kflags);
 		if (!ndata->svc_info.data) {
 			WL_ERR((" memory allocation failed \n"));
@@ -223,13 +196,14 @@ wl_cfgnan_set_vars_cbfn(void *ctx, void **tlv_buf, uint16 type, uint16 len)
 			goto fail;
 		}
 		if (ndata->svc_info.data && ndata->svc_info.dlen) {
-			ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_SVC_INFO,
-				ndata->svc_info.dlen, ndata->svc_info.data);
+			memcpy(&ndata->svc_info.data, buf, len);
 		}
 		break;
+	case WL_NAN_XTLV_PEER_INSTANCE_ID:
+		memcpy(&ndata->peer_inst_id, buf, len);
+		break;
 	case WL_NAN_XTLV_NAN_SCANPARAMS:
-		ret = bcm_unpack_xtlv_entry(tlv_buf, WL_NAN_XTLV_NAN_SCANPARAMS,
-			sizeof(nan_scan_params_t), &ndata->scan_params);
+		memcpy(&ndata->scan_params, buf, len);
 		break;
 	case WL_NAN_XTLV_ZERO:
 		/* don't parse empty space in the buffer */
@@ -237,8 +211,6 @@ wl_cfgnan_set_vars_cbfn(void *ctx, void **tlv_buf, uint16 type, uint16 len)
 		break;
 
 	default:
-		/* skip current tlv, if we don't have a handler */
-		ret = bcm_skip_xtlv(tlv_buf);
 		break;
 	}
 
@@ -250,7 +222,7 @@ int
 wl_cfgnan_enable_events(struct net_device *ndev, struct bcm_cfg80211 *cfg)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	void *pxtlv;
+	uint8 *pxtlv;
 	u32 event_mask = 0;
 	s32 ret = BCME_OK;
 	u16 start, end;
@@ -288,7 +260,7 @@ wl_cfgnan_enable_events(struct net_device *ndev, struct bcm_cfg80211 *cfg)
 	nanioc->id = htod16(WL_NAN_CMD_EVENT_MASK);
 	pxtlv = nanioc->data;
 	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_EVENT_MASK,
-		sizeof(uint32), &event_mask);
+		sizeof(event_mask), &event_mask, BCM_XTLV_OPTION_ALIGN32);
 	if (unlikely(ret)) {
 		goto fail;
 	}
@@ -318,12 +290,11 @@ fail:
 }
 
 int
-wl_cfgnan_start_handler(struct net_device *ndev,
+wl_cfgnan_enable_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	struct ether_addr cluster_id = ether_null;
-	void *pxtlv;
+	uint8 *pxtlv;
 	s32 ret = BCME_OK;
 	u16 start, end;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
@@ -340,9 +311,8 @@ wl_cfgnan_start_handler(struct net_device *ndev,
 	 * command to test
 	 *
 	 * wl: wl nan 1
-	 *     wl nan join -start
 	 *
-	 * wpa_cli: DRIVER NAN_START
+	 * wpa_cli: DRIVER NAN_ENABLE
 	 */
 
 	/* nan enable */
@@ -352,7 +322,7 @@ wl_cfgnan_start_handler(struct net_device *ndev,
 	nanioc->id = htod16(WL_NAN_CMD_ENABLE);
 	pxtlv = nanioc->data;
 	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_ENABLE,
-		sizeof(uint8), &val);
+		sizeof(val), &val, BCM_XTLV_OPTION_ALIGN32);
 	if (unlikely(ret)) {
 		goto fail;
 	}
@@ -364,6 +334,7 @@ wl_cfgnan_start_handler(struct net_device *ndev,
 		WL_ERR((" nan enable failed, error = %d \n", ret));
 		goto fail;
 	} else {
+		cfg->nan_enable = true;
 		WL_DBG((" nan enable successful \n"));
 	}
 
@@ -373,20 +344,61 @@ wl_cfgnan_start_handler(struct net_device *ndev,
 		goto fail;
 	}
 
+fail:
+	if (nanioc) {
+		kfree(nanioc);
+	}
+
+	return ret;
+}
+
+int
+wl_cfgnan_start_handler(struct net_device *ndev,
+	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
+{
+	wl_nan_ioc_t *nanioc = NULL;
+	struct ether_addr cluster_id = ether_null;
+	uint8 *pxtlv;
+	s32 ret = BCME_OK;
+	u16 start, end;
+	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
+	uint16 nanioc_size = sizeof(wl_nan_ioc_t) + NAN_IOCTL_BUF_SIZE;
+	uint8 val;
+
+	if (cfg->nan_enable != true) {
+		ret = wl_cfgnan_enable_handler(ndev, cfg, cmd, cmd_data);
+		if (unlikely(ret)) {
+			goto fail;
+		}
+	}
+
+	/*
+	 * command to test
+	 *
+	 * wl: wl nan join -start
+	 *
+	 * wpa_cli: DRIVER NAN_START
+	 */
+
 	/* nan join */
+	nanioc = kzalloc(nanioc_size, kflags);
+	if (!nanioc) {
+		WL_ERR((" memory allocation failed \n"));
+		return -ENOMEM;
+	}
+
 	val = 1;
-	memset(nanioc, 0, nanioc_size);
 	start = end = NAN_IOCTL_BUF_SIZE;
 	nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
 	nanioc->id = htod16(WL_NAN_CMD_NAN_JOIN);
 	pxtlv = nanioc->data;
 	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_CLUSTER_ID,
-		ETHER_ADDR_LEN, &cluster_id);
+		ETHER_ADDR_LEN, &cluster_id, BCM_XTLV_OPTION_ALIGN32);
 	if (unlikely(ret)) {
 		goto fail;
 	}
 	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_START,
-		sizeof(uint8), &val);
+		sizeof(val), &val, BCM_XTLV_OPTION_ALIGN32);
 	if (unlikely(ret)) {
 		goto fail;
 	}
@@ -416,23 +428,12 @@ wl_cfgnan_stop_handler(struct net_device *ndev,
 {
 	wl_nan_ioc_t *nanioc = NULL;
 	struct ether_addr cluster_id = ether_null;
-	void *pxtlv;
+	uint8 *pxtlv;
 	s32 ret = BCME_OK;
 	u16 start, end;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
 	uint16 nanioc_size = sizeof(wl_nan_ioc_t) + NAN_IOCTL_BUF_SIZE;
 	uint8 nan_enable = FALSE;
-
-	if (cfg->nan_running == false) {
-		WL_DBG((" nan not running, do nothing \n"));
-		return BCME_OK;
-	}
-
-	nanioc = kzalloc(nanioc_size, kflags);
-	if (!nanioc) {
-		WL_ERR((" memory allocation failed \n"));
-		return -ENOMEM;
-	}
 
 	/*
 	 * command to test
@@ -443,48 +444,60 @@ wl_cfgnan_stop_handler(struct net_device *ndev,
 	 * wpa_cli: DRIVER NAN_STOP
 	 */
 
-	/* nan stop */
-
-	start = end = NAN_IOCTL_BUF_SIZE;
-	nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
-	nanioc->id = htod16(WL_NAN_CMD_STOP);
-	pxtlv = nanioc->data;
-	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_CLUSTER_ID,
-		ETHER_ADDR_LEN, &cluster_id);
-	if (unlikely(ret)) {
-		goto fail;
+	nanioc = kzalloc(nanioc_size, kflags);
+	if (!nanioc) {
+		WL_ERR((" memory allocation failed \n"));
+		return -ENOMEM;
 	}
-	nanioc->len = start - end;
-	nanioc_size = sizeof(wl_nan_ioc_t) + nanioc->len;
-	ret = wldev_iovar_setbuf(ndev, "nan", nanioc, nanioc_size,
-		cfg->ioctl_buf, WLC_IOCTL_MEDLEN, NULL);
-	if (unlikely(ret)) {
-		WL_ERR((" nan stop failed, error = %d \n", ret));
-		goto fail;
-	} else {
-		WL_DBG((" nan stop successful \n"));
+
+	if (cfg->nan_running == true) {
+		/* nan stop */
+
+		start = end = NAN_IOCTL_BUF_SIZE;
+		nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
+		nanioc->id = htod16(WL_NAN_CMD_STOP);
+		pxtlv = nanioc->data;
+		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_CLUSTER_ID,
+			ETHER_ADDR_LEN, &cluster_id, BCM_XTLV_OPTION_ALIGN32);
+		if (unlikely(ret)) {
+			goto fail;
+		}
+		nanioc->len = start - end;
+		nanioc_size = sizeof(wl_nan_ioc_t) + nanioc->len;
+		ret = wldev_iovar_setbuf(ndev, "nan", nanioc, nanioc_size,
+			cfg->ioctl_buf, WLC_IOCTL_MEDLEN, NULL);
+		if (unlikely(ret)) {
+			WL_ERR((" nan stop failed, error = %d \n", ret));
+			goto fail;
+		} else {
+			cfg->nan_running = false;
+			WL_DBG((" nan stop successful \n"));
+		}
 	}
 
 	/* nan disable */
-	memset(nanioc, 0, nanioc_size);
-	start = end = NAN_IOCTL_BUF_SIZE;
-	nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
-	nanioc->id = htod16(WL_NAN_CMD_ENABLE);
-	pxtlv = nanioc->data;
-	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_ENABLE,
-		sizeof(uint8), &nan_enable);
-	if (unlikely(ret)) {
-		goto fail;
-	}
-	nanioc->len = start - end;
-	nanioc_size = sizeof(wl_nan_ioc_t) + nanioc->len;
-	ret = wldev_iovar_setbuf(ndev, "nan", nanioc, nanioc_size,
-		cfg->ioctl_buf, WLC_IOCTL_MEDLEN, NULL);
-	if (unlikely(ret)) {
-		WL_ERR((" nan disable failed, error = %d \n", ret));
-		goto fail;
-	} else {
-		WL_DBG((" nan disable successful \n"));
+	if (cfg->nan_enable == true) {
+		memset(nanioc, 0, nanioc_size);
+		start = end = NAN_IOCTL_BUF_SIZE;
+		nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
+		nanioc->id = htod16(WL_NAN_CMD_ENABLE);
+		pxtlv = nanioc->data;
+		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_ENABLE,
+			sizeof(nan_enable), &nan_enable, BCM_XTLV_OPTION_ALIGN32);
+		if (unlikely(ret)) {
+			goto fail;
+		}
+		nanioc->len = start - end;
+		nanioc_size = sizeof(wl_nan_ioc_t) + nanioc->len;
+		ret = wldev_iovar_setbuf(ndev, "nan", nanioc, nanioc_size,
+			cfg->ioctl_buf, WLC_IOCTL_MEDLEN, NULL);
+		if (unlikely(ret)) {
+			WL_ERR((" nan disable failed, error = %d \n", ret));
+			goto fail;
+		} else {
+			cfg->nan_enable = false;
+			WL_DBG((" nan disable successful \n"));
+		}
 	}
 
 fail:
@@ -500,7 +513,7 @@ wl_cfgnan_support_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	void *pxtlv;
+	uint8 *pxtlv;
 	s32 ret = BCME_OK;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
 	uint16 nanioc_size = sizeof(wl_nan_ioc_t) + NAN_IOCTL_BUF_SIZE;
@@ -591,7 +604,7 @@ wl_cfgnan_status_handler(struct net_device *ndev,
 		prhex(" nanioc->data: ", (uint8 *)ioc_ret->data, ioc_ret->len);
 	}
 	bcm_unpack_xtlv_buf(&tlv_data, ioc_ret->data, ioc_ret->len,
-		wl_cfgnan_set_vars_cbfn);
+		BCM_XTLV_OPTION_ALIGN32, wl_cfgnan_set_vars_cbfn);
 
 	ptr += sprintf(ptr, ROLE_PREFIX"%d", tlv_data.dev_role);
 	ptr += sprintf(ptr, " " AMR_PREFIX);
@@ -623,7 +636,7 @@ wl_cfgnan_status_handler(struct net_device *ndev,
 		prhex(" nanioc->data: ", (uint8 *)ioc_ret->data, ioc_ret->len);
 	}
 	bcm_unpack_xtlv_buf(&tlv_data, ioc_ret->data, ioc_ret->len,
-		wl_cfgnan_set_vars_cbfn);
+		BCM_XTLV_OPTION_ALIGN32, wl_cfgnan_set_vars_cbfn);
 
 	ptr += sprintf(ptr, " " SCAN_PERIOD_PREFIX"%d",
 		tlv_data.scan_params.ms_dur);
@@ -651,19 +664,52 @@ fail:
 	return ret;
 }
 
+/*
+ *  packs user data (in hex string) into tlv record
+ *  advances tlv pointer to next xtlv slot
+ *  buflen is used for tlv_buf space check
+ */
+static int
+get_ie_data(uchar *data_str, uchar *ie_data, int len)
+{
+	uchar *src, *dest;
+	uchar val;
+	int idx;
+	char hexstr[3];
+
+	src = data_str;
+	dest = ie_data;
+
+	for (idx = 0; idx < len; idx++) {
+		hexstr[0] = src[0];
+		hexstr[1] = src[1];
+		hexstr[2] = '\0';
+
+#ifdef BCMDRIVER
+		val = (uchar) simple_strtoul(hexstr, NULL, 16);
+#else
+		val = (uchar) strtoul(hexstr, NULL, 16);
+#endif
+
+		*dest++ = val;
+		src += 2;
+	}
+
+	return 0;
+}
+
 int
 wl_cfgnan_pub_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	struct bcm_tlvbuf *tbuf = NULL;
 	wl_nan_disc_params_t params;
 	s32 ret = BCME_OK;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
-	uint16 tbuf_size = BCM_XTLV_HDR_SIZE + sizeof(params);
 	uint16 nanioc_size = sizeof(wl_nan_ioc_t) + NAN_IOCTL_BUF_SIZE;
-	void *pxtlv;
+	uint8 *pxtlv;
 	u16 start, end;
+	uchar *buf = NULL;
 
 	/*
 	 * proceed only if mandatory arguments are present - publisher id,
@@ -679,13 +725,6 @@ wl_cfgnan_pub_handler(struct net_device *ndev,
 	if (!nanioc) {
 		WL_ERR((" memory allocation failed \n"));
 		return -ENOMEM;
-	}
-
-	tbuf = bcm_xtlv_buf_alloc(NULL, tbuf_size);
-	if (!tbuf) {
-		WL_ERR((" memory allocation failed \n"));
-		ret = -ENOMEM;
-		goto fail;
 	}
 
 	/*
@@ -717,19 +756,42 @@ wl_cfgnan_pub_handler(struct net_device *ndev,
 	} else {
 		params.ttl = WL_NAN_TTL_UNTIL_CANCEL;
 	}
-	params.flags = WL_NAN_PUB_BOTH;
+	params.flags = 0;
+	if (cmd_data->flags & WL_NAN_PUB_UNSOLICIT) {
+		params.flags |= WL_NAN_PUB_UNSOLICIT;
+		WL_DBG((" nan publish type - unsolicited\n"));
+	}
+	if (cmd_data->flags & WL_NAN_PUB_SOLICIT) {
+		params.flags |= WL_NAN_PUB_SOLICIT;
+		WL_DBG((" nan publish type - solicited\n"));
+	}
+	if (!params.flags) {
+		params.flags = WL_NAN_PUB_BOTH; /* default. */
+	}
 	params.instance_id = (wl_nan_instance_id_t)cmd_data->pub_id;
 	memcpy((char *)params.svc_hash, cmd_data->svc_hash.data,
 		cmd_data->svc_hash.dlen);
-	ret = bcm_pack_xtlv_entry(&pxtlv,
-		&end, WL_NAN_XTLV_SVC_PARAMS, sizeof(wl_nan_disc_params_t), &params);
+	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_SVC_PARAMS,
+		sizeof(params), &params, BCM_XTLV_OPTION_ALIGN32);
 	if (unlikely(ret)) {
 		goto fail;
 	}
 	if (cmd_data->svc_info.data && cmd_data->svc_info.dlen) {
+		uint16 len = cmd_data->svc_info.dlen/2;
+
 		WL_DBG((" optional svc_info present, pack it \n"));
-		ret = bcm_pack_xtlv_entry_from_hex_string(&pxtlv,
-			&end, WL_NAN_XTLV_SVC_INFO, cmd_data->svc_info.data);
+		buf = kzalloc(len, kflags);
+		if (!buf) {
+			WL_ERR((" memory allocation failed \n"));
+			ret = -ENOMEM;
+			goto fail;
+		}
+		if (get_ie_data((uchar*)cmd_data->svc_info.data, buf, len)) {
+			goto fail;
+		}
+
+		ret = bcm_pack_xtlv_entry(&pxtlv,
+			&end, WL_NAN_XTLV_SVC_INFO, len, buf, BCM_XTLV_OPTION_ALIGN32);
 		if (unlikely(ret)) {
 			goto fail;
 		}
@@ -747,11 +809,11 @@ wl_cfgnan_pub_handler(struct net_device *ndev,
 	}
 
 fail:
-	if (tbuf) {
-		bcm_xtlv_buf_free(NULL, tbuf);
-	}
 	if (nanioc) {
 		kfree(nanioc);
+	}
+	if (buf) {
+		kfree(buf);
 	}
 
 	return ret;
@@ -762,7 +824,7 @@ wl_cfgnan_sub_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	struct bcm_tlvbuf *tbuf = NULL;
+	bcm_xtlvbuf_t tbuf;
 	wl_nan_disc_params_t params;
 	s32 ret = BCME_OK;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
@@ -784,12 +846,8 @@ wl_cfgnan_sub_handler(struct net_device *ndev,
 		return -ENOMEM;
 	}
 
-	tbuf = bcm_xtlv_buf_alloc(NULL, BCM_XTLV_HDR_SIZE + sizeof(params));
-	if (!tbuf) {
-		WL_ERR((" memory allocation failed \n"));
-		ret = -ENOMEM;
-		goto fail;
-	}
+	bcm_xtlv_buf_init(&tbuf, nanioc->data,
+		BCM_XTLV_HDR_SIZE + sizeof(params), BCM_XTLV_OPTION_ALIGN32);
 
 	/*
 	 * command to test
@@ -803,16 +861,19 @@ wl_cfgnan_sub_handler(struct net_device *ndev,
 	params.period = 1;
 	params.ttl = WL_NAN_TTL_UNTIL_CANCEL;
 	params.flags = 0;
+	if (cmd_data->flags & WL_NAN_SUB_ACTIVE) {
+		params.flags = WL_NAN_SUB_ACTIVE;
+		WL_DBG((" nan subscribe type - Active\n"));
+	}
 	params.instance_id = (wl_nan_instance_id_t)cmd_data->sub_id;
 	memcpy((char *)params.svc_hash, cmd_data->svc_hash.data,
 		cmd_data->svc_hash.dlen);
-	bcm_xtlv_put_data(tbuf, WL_NAN_XTLV_SVC_PARAMS, &params, sizeof(params));
+	bcm_xtlv_put_data(&tbuf, WL_NAN_XTLV_SVC_PARAMS, &params, sizeof(params));
 
 	nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
 	nanioc->id = htod16(WL_NAN_CMD_SUBSCRIBE);
-	nanioc->len = htod16(bcm_xtlv_buf_len(tbuf));
-	bcopy(bcm_xtlv_head(tbuf), nanioc->data, bcm_xtlv_buf_len(tbuf));
-	nanioc_size = sizeof(wl_nan_ioc_t) + bcm_xtlv_buf_len(tbuf);
+	nanioc->len = htod16(bcm_xtlv_buf_len(&tbuf));
+	nanioc_size = sizeof(wl_nan_ioc_t) + bcm_xtlv_buf_len(&tbuf);
 	ret = wldev_iovar_setbuf(ndev, "nan", nanioc, nanioc_size,
 		cfg->ioctl_buf, WLC_IOCTL_MEDLEN, NULL);
 	if (unlikely(ret)) {
@@ -823,9 +884,6 @@ wl_cfgnan_sub_handler(struct net_device *ndev,
 	}
 
 fail:
-	if (tbuf) {
-		bcm_xtlv_buf_free(NULL, tbuf);
-	}
 	if (nanioc) {
 		kfree(nanioc);
 	}
@@ -838,7 +896,7 @@ wl_cfgnan_cancel_pub_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	struct bcm_tlvbuf *tbuf = NULL;
+	bcm_xtlvbuf_t tbuf;
 	wl_nan_disc_params_t params;
 	s32 ret = BCME_OK;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
@@ -856,12 +914,8 @@ wl_cfgnan_cancel_pub_handler(struct net_device *ndev,
 		return -ENOMEM;
 	}
 
-	tbuf = bcm_xtlv_buf_alloc(NULL, BCM_XTLV_HDR_SIZE + sizeof(params));
-	if (!tbuf) {
-		WL_ERR((" memory allocation failed \n"));
-		ret = -ENOMEM;
-		goto fail;
-	}
+	bcm_xtlv_buf_init(&tbuf, nanioc->data,
+		BCM_XTLV_HDR_SIZE + sizeof(params), BCM_XTLV_OPTION_ALIGN32);
 
 	/*
 	 * command to test
@@ -871,15 +925,14 @@ wl_cfgnan_cancel_pub_handler(struct net_device *ndev,
 	 * wpa_cli: DRIVER NAN_CANCEL_PUBLISH PUB_ID=10
 	 */
 
-	bcm_xtlv_put_data(tbuf, WL_NAN_XTLV_INSTANCE_ID, &cmd_data->pub_id,
+	bcm_xtlv_put_data(&tbuf, WL_NAN_XTLV_INSTANCE_ID, &cmd_data->pub_id,
 		sizeof(wl_nan_instance_id_t));
 
 	/* nan cancel publish */
 	nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
 	nanioc->id = htod16(WL_NAN_CMD_CANCEL_PUBLISH);
-	nanioc->len = htod16(bcm_xtlv_buf_len(tbuf));
-	bcopy(bcm_xtlv_head(tbuf), nanioc->data, bcm_xtlv_buf_len(tbuf));
-	nanioc_size = sizeof(wl_nan_ioc_t) + bcm_xtlv_buf_len(tbuf);
+	nanioc->len = htod16(bcm_xtlv_buf_len(&tbuf));
+	nanioc_size = sizeof(wl_nan_ioc_t) + bcm_xtlv_buf_len(&tbuf);
 	ret = wldev_iovar_setbuf(ndev, "nan", nanioc, nanioc_size,
 		cfg->ioctl_buf, WLC_IOCTL_MEDLEN, NULL);
 	if (unlikely(ret)) {
@@ -890,9 +943,6 @@ wl_cfgnan_cancel_pub_handler(struct net_device *ndev,
 	}
 
 fail:
-	if (tbuf) {
-		bcm_xtlv_buf_free(NULL, tbuf);
-	}
 	if (nanioc) {
 		kfree(nanioc);
 	}
@@ -905,7 +955,7 @@ wl_cfgnan_cancel_sub_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	struct bcm_tlvbuf *tbuf = NULL;
+	bcm_xtlvbuf_t tbuf;
 	wl_nan_disc_params_t params;
 	s32 ret = BCME_OK;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
@@ -923,12 +973,8 @@ wl_cfgnan_cancel_sub_handler(struct net_device *ndev,
 		return -ENOMEM;
 	}
 
-	tbuf = bcm_xtlv_buf_alloc(NULL, BCM_XTLV_HDR_SIZE + sizeof(params));
-	if (!tbuf) {
-		WL_ERR((" memory allocation failed \n"));
-		ret = -ENOMEM;
-		goto fail;
-	}
+	bcm_xtlv_buf_init(&tbuf, nanioc->data,
+		BCM_XTLV_HDR_SIZE + sizeof(params), BCM_XTLV_OPTION_ALIGN32);
 
 	/*
 	 * command to test
@@ -938,15 +984,14 @@ wl_cfgnan_cancel_sub_handler(struct net_device *ndev,
 	 * wpa_cli: DRIVER NAN_CANCEL_SUBSCRIBE PUB_ID=10
 	 */
 
-	bcm_xtlv_put_data(tbuf, WL_NAN_XTLV_INSTANCE_ID, &cmd_data->sub_id,
+	bcm_xtlv_put_data(&tbuf, WL_NAN_XTLV_INSTANCE_ID, &cmd_data->sub_id,
 		sizeof(wl_nan_instance_id_t));
 
 	/* nan cancel subscribe */
 	nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
 	nanioc->id = htod16(WL_NAN_CMD_CANCEL_SUBSCRIBE);
-	nanioc->len = htod16(bcm_xtlv_buf_len(tbuf));
-	bcopy(bcm_xtlv_head(tbuf), nanioc->data, bcm_xtlv_buf_len(tbuf));
-	nanioc_size = sizeof(wl_nan_ioc_t) + bcm_xtlv_buf_len(tbuf);
+	nanioc->len = htod16(bcm_xtlv_buf_len(&tbuf));
+	nanioc_size = sizeof(wl_nan_ioc_t) + bcm_xtlv_buf_len(&tbuf);
 	ret = wldev_iovar_setbuf(ndev, "nan", nanioc, nanioc_size,
 		cfg->ioctl_buf, WLC_IOCTL_MEDLEN, NULL);
 	if (unlikely(ret)) {
@@ -957,9 +1002,6 @@ wl_cfgnan_cancel_sub_handler(struct net_device *ndev,
 	}
 
 fail:
-	if (tbuf) {
-		bcm_xtlv_buf_free(NULL, tbuf);
-	}
 	if (nanioc) {
 		kfree(nanioc);
 	}
@@ -972,11 +1014,12 @@ wl_cfgnan_transmit_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	void *pxtlv;
+	uint8 *pxtlv;
 	s32 ret = BCME_OK;
 	u16 start, end;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
 	uint16 nanioc_size = sizeof(wl_nan_ioc_t) + NAN_IOCTL_BUF_SIZE;
+	uchar *buf = NULL;
 
 	/*
 	 * proceed only if mandatory arguments are present - subscriber id,
@@ -1010,24 +1053,40 @@ wl_cfgnan_transmit_handler(struct net_device *ndev,
 	pxtlv = nanioc->data;
 
 	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_INSTANCE_ID,
-		sizeof(wl_nan_instance_id_t), &cmd_data->sub_id);
+		sizeof(cmd_data->local_id), &cmd_data->local_id,
+		BCM_XTLV_OPTION_ALIGN32);
 	if (unlikely(ret)) {
 		goto fail;
 	}
 	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_REQUESTOR_ID,
-		sizeof(wl_nan_instance_id_t), &cmd_data->pub_id);
+		sizeof(cmd_data->remote_id), &cmd_data->remote_id,
+		BCM_XTLV_OPTION_ALIGN32);
 	if (unlikely(ret)) {
 		goto fail;
 	}
 	ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_MAC_ADDR,
-		ETHER_ADDR_LEN, &cmd_data->mac_addr.octet);
+		ETHER_ADDR_LEN, &cmd_data->mac_addr.octet,
+		BCM_XTLV_OPTION_ALIGN32);
 	if (unlikely(ret)) {
 		goto fail;
 	}
 	if (cmd_data->svc_info.data && cmd_data->svc_info.dlen) {
+		uint16 len = cmd_data->svc_info.dlen/2;
+
 		WL_DBG((" optional svc_info present, pack it \n"));
-		ret = bcm_pack_xtlv_entry_from_hex_string(&pxtlv,
-			&end, WL_NAN_XTLV_SVC_INFO, cmd_data->svc_info.data);
+		buf = kzalloc(len, kflags);
+		if (!buf) {
+			WL_ERR((" memory allocation failed \n"));
+			ret = -ENOMEM;
+			goto fail;
+		}
+		if (get_ie_data((uchar*)cmd_data->svc_info.data, buf, len)) {
+			goto fail;
+		}
+
+		ret = bcm_pack_xtlv_entry(&pxtlv,
+			&end, WL_NAN_XTLV_SVC_INFO, len, buf,
+			BCM_XTLV_OPTION_ALIGN32);
 		if (unlikely(ret)) {
 			goto fail;
 		}
@@ -1048,6 +1107,9 @@ fail:
 	if (nanioc) {
 		kfree(nanioc);
 	}
+	if (buf) {
+		kfree(buf);
+	}
 
 	return ret;
 }
@@ -1057,11 +1119,23 @@ wl_cfgnan_set_config_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
 	wl_nan_ioc_t *nanioc = NULL;
-	void *pxtlv;
+	uint8 *pxtlv;
 	s32 ret = BCME_OK;
 	u16 start, end;
 	u16 kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
 	uint16 nanioc_size = sizeof(wl_nan_ioc_t) + NAN_IOCTL_BUF_SIZE;
+
+	if (cfg->nan_running == true) {
+		WL_ERR((" Stop nan (NAN_STOP) before issuing NAN_CONFIG command\n"));
+		return BCME_ERROR;
+	}
+
+	if (cfg->nan_enable != true) {
+		ret = wl_cfgnan_enable_handler(ndev, cfg, cmd, cmd_data);
+		if (unlikely(ret)) {
+			goto fail;
+		}
+	}
 
 	nanioc = kzalloc(nanioc_size, kflags);
 	if (!nanioc) {
@@ -1087,21 +1161,47 @@ wl_cfgnan_set_config_handler(struct net_device *ndev,
 
 	switch (cmd_data->attr.type) {
 	case WL_NAN_XTLV_ROLE:
+		WL_DBG((" set nan ROLE = %#x\n", cmd_data->role));
 		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_ROLE,
-			sizeof(u32), &cmd_data->role);
+			sizeof(cmd_data->role), &cmd_data->role,
+			BCM_XTLV_OPTION_ALIGN32);
 		break;
 	case WL_NAN_XTLV_MASTER_PREF:
+		WL_DBG((" set nan MASTER PREF = %#x\n", cmd_data->master_pref));
 		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_MASTER_PREF,
-			sizeof(u16), &cmd_data->master_pref);
+			sizeof(cmd_data->master_pref), &cmd_data->master_pref,
+			BCM_XTLV_OPTION_ALIGN32);
 		break;
 	case WL_NAN_XTLV_DW_LEN:
+		WL_DBG((" set nan DW LEN = %#x\n", cmd_data->dw_len));
 		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_DW_LEN,
-			sizeof(u16), &cmd_data->dw_len);
+			sizeof(cmd_data->dw_len), &cmd_data->dw_len,
+			BCM_XTLV_OPTION_ALIGN32);
 		break;
 	case WL_NAN_XTLV_CLUSTER_ID:
+		WL_DBG((" set nan CLUSTER ID "));
+		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_CLUSTER_ID,
+			sizeof(cmd_data->clus_id), &cmd_data->clus_id,
+			BCM_XTLV_OPTION_ALIGN32);
+		break;
 	case WL_NAN_XTLV_IF_ADDR:
-	case WL_NAN_XTLV_BCN_INTERVAL:
+		WL_DBG((" set nan IFADDR "));
+		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_IF_ADDR,
+			sizeof(cmd_data->if_addr), &cmd_data->if_addr,
+			BCM_XTLV_OPTION_ALIGN32);
+		break;
 	case WL_NAN_XTLV_MAC_CHANSPEC:
+		WL_DBG((" set nan CHANSPEC = %#x\n", cmd_data->chanspec));
+		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_MAC_CHANSPEC,
+			sizeof(cmd_data->chanspec), &cmd_data->chanspec,
+			BCM_XTLV_OPTION_ALIGN32);
+		break;
+	case WL_NAN_XTLV_BCN_INTERVAL:
+		WL_DBG((" set nan BCN_INTERVAL = %#x\n", cmd_data->beacon_int));
+		ret = bcm_pack_xtlv_entry(&pxtlv, &end, WL_NAN_XTLV_BCN_INTERVAL,
+			sizeof(cmd_data->beacon_int), &cmd_data->beacon_int,
+			BCM_XTLV_OPTION_ALIGN32);
+		break;
 	case WL_NAN_XTLV_MAC_TXRATE:
 	default:
 		ret = -EINVAL;
@@ -1354,6 +1454,29 @@ static int wl_cfgnan_parse_args(char *buf, nan_cmd_data_t *cmd_data)
 			buf += strlen(MASTER_PREF_PREFIX);
 			token = strsep(&buf, delim);
 			cmd_data->master_pref = simple_strtoul(token, NULL, 10);
+		} else if (!strncmp(buf, CLUS_ID_PREFIX, strlen(CLUS_ID_PREFIX))) {
+			buf += strlen(CLUS_ID_PREFIX);
+			token = strsep(&buf, delim);
+			if (!wl_cfg80211_ether_atoe(token, &cmd_data->clus_id)) {
+				WL_ERR((" invalid cluster id, CLUS_ID = "MACDBG "\n",
+					MAC2STRDBG(cmd_data->clus_id.octet)));
+				ret = -EINVAL;
+				goto fail;
+			}
+		} else if (!strncmp(buf, IF_ADDR_PREFIX, strlen(IF_ADDR_PREFIX))) {
+			buf += strlen(IF_ADDR_PREFIX);
+			token = strsep(&buf, delim);
+			if (!wl_cfg80211_ether_atoe(token, &cmd_data->if_addr)) {
+				WL_ERR((" invalid cluster id, IF_ADDR = "MACDBG "\n",
+					MAC2STRDBG(cmd_data->if_addr.octet)));
+				ret = -EINVAL;
+				goto fail;
+			}
+		} else if (!strncmp(buf, BCN_INTERVAL_PREFIX,
+			strlen(BCN_INTERVAL_PREFIX))) {
+			buf += strlen(BCN_INTERVAL_PREFIX);
+			token = strsep(&buf, delim);
+			cmd_data->beacon_int = simple_strtoul(token, NULL, 10);
 		} else if (!strncmp(buf, PUB_PR_PREFIX, strlen(PUB_PR_PREFIX))) {
 			buf += strlen(PUB_PR_PREFIX);
 			token = strsep(&buf, delim);
@@ -1370,6 +1493,18 @@ static int wl_cfgnan_parse_args(char *buf, nan_cmd_data_t *cmd_data)
 			buf += strlen(DEBUG_PREFIX);
 			token = strsep(&buf, delim);
 			cmd_data->debug_flag = simple_strtoul(token, NULL, 10);
+		} else if (!strncmp(buf, ACTIVE_OPTION, strlen(ACTIVE_OPTION))) {
+			buf += strlen(ACTIVE_OPTION);
+			token = strsep(&buf, delim);
+			cmd_data->flags |= WL_NAN_SUB_ACTIVE;
+		} else if (!strncmp(buf, SOLICITED_OPTION, strlen(SOLICITED_OPTION))) {
+			buf += strlen(SOLICITED_OPTION);
+			token = strsep(&buf, delim);
+			cmd_data->flags |= WL_NAN_PUB_SOLICIT;
+		} else if (!strncmp(buf, UNSOLICITED_OPTION, strlen(UNSOLICITED_OPTION))) {
+			buf += strlen(UNSOLICITED_OPTION);
+			token = strsep(&buf, delim);
+			cmd_data->flags |= WL_NAN_PUB_UNSOLICIT;
 		} else {
 			WL_ERR((" unknown token, token = %s, buf = %s \n", token, buf));
 			ret = -EINVAL;
@@ -1557,7 +1692,7 @@ wl_cfgnan_notify_nan_status(struct bcm_cfg80211 *cfg,
 	/* unpack the tlvs */
 	memset(&tlv_data, 0, sizeof(wl_nan_tlv_data_t));
 	bcm_unpack_xtlv_buf(&tlv_data, data, data_len,
-		wl_cfgnan_set_vars_cbfn);
+		BCM_XTLV_OPTION_ALIGN32, wl_cfgnan_set_vars_cbfn);
 
 	/*
 	 * send as preformatted hex string

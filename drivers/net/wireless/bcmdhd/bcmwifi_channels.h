@@ -3,7 +3,7 @@
  * This header file housing the define and function prototype use by
  * both the wl driver, tools & Apps.
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -294,6 +294,14 @@ typedef uint16 chanspec_t;
 #define WLC_2G_25MHZ_OFFSET		5	/* 2.4GHz band channel offset */
 
 /**
+ *  No of sub-band vlaue of the specified Mhz chanspec
+ */
+#define WF_NUM_SIDEBANDS_40MHZ   2
+#define WF_NUM_SIDEBANDS_80MHZ   4
+#define WF_NUM_SIDEBANDS_8080MHZ 4
+#define WF_NUM_SIDEBANDS_160MHZ  8
+
+/**
  * Convert chanspec to ascii string
  *
  * @param	chspec		chanspec format
@@ -438,6 +446,19 @@ extern int wf_mhz2channel(uint freq, uint start_factor);
  * @see  WF_CHAN_FACTOR_5_G
  */
 extern int wf_channel2mhz(uint channel, uint start_factor);
+
+/**
+ * Returns the chanspec 80Mhz channel corresponding to the following input
+ * parameters
+ *
+ *	primary_channel - primary 20Mhz channel
+ *	center_channel   - center frequecny of the 80Mhz channel
+ *
+ * The center_channel can be one of {42, 58, 106, 122, 138, 155}
+ *
+ * returns INVCHANSPEC in case of error
+ */
+extern chanspec_t wf_chspec_80(uint8 center_channel, uint8 primary_channel);
 
 /**
  * Convert ctl chan and bw to chanspec

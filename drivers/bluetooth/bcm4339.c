@@ -171,7 +171,7 @@ static void enter_lpm_work(struct work_struct *data)
 	mutex_unlock(&bt_lpm.mutex);
 }
 
-static void bcm_bt_lpm_reset_timer(void)
+void bcm_bt_lpm_reset_timer(void)
 {
 	mutex_lock(&bt_lpm.mutex);
 
@@ -181,8 +181,9 @@ static void bcm_bt_lpm_reset_timer(void)
 		HRTIMER_MODE_REL);
 	mutex_unlock(&bt_lpm.mutex);
 }
+EXPORT_SYMBOL(bcm_bt_lpm_reset_timer);
 
-static void bcm_bt_lpm_exit_lpm(void)
+void bcm_bt_lpm_exit_lpm(void)
 {
 	mutex_lock(&bt_lpm.mutex);
 
@@ -201,6 +202,7 @@ static void bcm_bt_lpm_exit_lpm(void)
 		HRTIMER_MODE_REL);
 	mutex_unlock(&bt_lpm.mutex);
 }
+EXPORT_SYMBOL(bcm_bt_lpm_exit_lpm);
 
 void bcm_bt_lpm_exit_lpm_locked(struct uart_port *uport)
 {

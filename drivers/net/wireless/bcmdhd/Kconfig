@@ -63,3 +63,10 @@ config BCMDHD_INSMOD_NO_FW_LOAD
 	default y
 	---help---
 	  This is a configuration for broadcom WLAN driver.
+
+config DHD_USE_SCHED_SCAN
+	bool "Use CFG80211 sched scan"
+	depends on BCMDHD && CFG80211
+	default n
+	---help---
+	  Use CFG80211 sched scan

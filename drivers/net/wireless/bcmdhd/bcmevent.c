@@ -1,7 +1,7 @@
 /*
  * bcmevent read-only data shared by kernel or app layers
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -20,7 +20,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmevent.c 516345 2014-11-19 11:58:57Z $
+ * $Id: bcmevent.c 596861 2015-11-03 08:54:58Z $
  */
 
 #include <typedefs.h>
@@ -149,14 +149,14 @@ const bcmevent_name_t bcmevent_names[] = {
 	BCMEVENT_NAME(WLC_E_BCMC_CREDIT_SUPPORT),
 #endif
 	BCMEVENT_NAME(WLC_E_TXFAIL_THRESH),
-#ifdef WLAIBSS
-	BCMEVENT_NAME(WLC_E_AIBSS_TXFAIL),
-#endif /* WLAIBSS */
 #ifdef GSCAN_SUPPORT
 	BCMEVENT_NAME(WLC_E_PFN_GSCAN_FULL_RESULT),
 	BCMEVENT_NAME(WLC_E_PFN_SWC),
 #endif /* GSCAN_SUPPORT */
 	BCMEVENT_NAME(WLC_E_RMC_EVENT),
+#ifdef GSCAN_SUPPORT
+	BCMEVENT_NAME(WLC_E_PFN_SSID_EXT),
+#endif /* GSCAN_SUPPORT */
 };
 
 const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);

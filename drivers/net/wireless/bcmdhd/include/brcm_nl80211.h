@@ -1,7 +1,7 @@
 /*
  * Definitions for nl80211 testmode access to host driver
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,12 +21,20 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: brcm_nl80211.h 454792 2014-02-11 20:40:19Z $
+ * $Id: brcm_nl80211.h 596861 2015-11-03 08:54:58Z $
  *
  */
 
 #ifndef _brcm_nl80211_h_
 #define _brcm_nl80211_h_
+
+#define OUI_BRCM  0x001018
+
+enum wl_vendor_subcmd {
+	BRCM_VENDOR_SCMD_UNSPEC,
+	BRCM_VENDOR_SCMD_PRIV_STR,
+	BRCM_VENDOR_SCMD_BCM_STR
+};
 
 struct bcm_nlmsg_hdr {
 	uint cmd;	/* common ioctl definition */

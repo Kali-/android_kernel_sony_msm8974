@@ -753,6 +753,8 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	unsigned target_timeout, current_timeout;
 	u32 curr_clk = 0; /* In KHz */
 
+	return 0xF;
+
 	/*
 	 * If the host controller provides us with an incorrect timeout
 	 * value, just skip the check and use 0xE.  The hardware may take

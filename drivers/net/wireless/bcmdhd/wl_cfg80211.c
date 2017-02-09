@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 driver
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * Copyright (C) 2013 Sony Mobile Communications Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfg80211.c 571419 2015-07-15 03:53:57Z $
+ * $Id: wl_cfg80211.c 619794 2016-02-18 08:54:32Z $
  */
 /* */
 #include <typedefs.h>
@@ -395,6 +395,9 @@ static s32 wl_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *dev,
 static s32 wl_cfg80211_flush_pmksa(struct wiphy *wiphy,
 	struct net_device *dev);
 static void wl_cfg80211_scan_abort(struct bcm_cfg80211 *cfg);
+#if defined(WL_ABORT_SCAN)
+static void wl_cfg80211_abort_scan(struct wiphy *wiphy, struct wireless_dev *dev);
+#endif /* WL_ABORT_SCAN */
 static s32 wl_notify_escan_complete(struct bcm_cfg80211 *cfg,
 	struct net_device *ndev, bool aborted, bool fw_abort);
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 2, 0))
@@ -458,6 +461,10 @@ static s32 wl_notify_pfn_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfg
 static s32 wl_notify_gscan_event(struct bcm_cfg80211 *wl, bcm_struct_cfgdev *cfgdev,
 	const wl_event_msg_t *e, void *data);
 #endif /* GSCAN_SUPPORT */
+#ifdef RSSI_MONITOR_SUPPORT
+static s32 wl_handle_rssi_monitor_event(struct bcm_cfg80211 *wl, bcm_struct_cfgdev *cfgdev,
+	const wl_event_msg_t *e, void *data);
+#endif /* RSSI_MONITOR_SUPPORT */
 static s32 wl_notifier_change_state(struct bcm_cfg80211 *cfg, struct net_info *_net_info,
 	enum wl_status state, bool set);
 
@@ -1163,7 +1170,14 @@ wl_validate_wps_ie(char *wps_ie, s32 wps_ie_len, bool *pbc)
 		subelt_len = HTON16(val);
 
 		len -= 4;			/* for the attr id, attr len fields */
+
+		if (len < subelt_len) {
+			WL_ERR(("not enough data, len %d, subelt_len %d\n", len,
+				subelt_len));
+			break;
+		}
 		len -= subelt_len;	/* for the remaining fields in this attribute */
+
 		WL_DBG((" subel=%p, subelt_id=0x%x subelt_len=%u\n",
 			subel, subelt_id, subelt_len));
 
@@ -1177,10 +1191,14 @@ wl_validate_wps_ie(char *wps_ie, s32 wps_ie_len, bool *pbc)
 			WL_DBG(("  attr WPS_ID_CONFIG_METHODS: %x\n", HTON16(val)));
 		} else if (subelt_id == WPS_ID_DEVICE_NAME) {
 			char devname[100];
-			memcpy(devname, subel, subelt_len);
-			devname[subelt_len] = '\0';
-			WL_DBG(("  attr WPS_ID_DEVICE_NAME: %s (len %u)\n",
-				devname, subelt_len));
+			int namelen = MIN(subelt_len, (sizeof(devname) - 1));
+
+			if (namelen) {
+				memcpy(devname, subel, namelen);
+				devname[namelen] = '\0';
+				WL_DBG(("  attr WPS_ID_DEVICE_NAME: %s (len %u)\n",
+					devname, subelt_len));
+			}
 		} else if (subelt_id == WPS_ID_DEVICE_PWD_ID) {
 			valptr[0] = *subel;
 			valptr[1] = *(subel + 1);
@@ -5848,11 +5866,11 @@ wl_cfg80211_set_channel(struct wiphy *wiphy, struct net_device *dev,
 			bw = WL_CHANSPEC_BW_40;
 			goto set_channel;
 		case NL80211_CHAN_WIDTH_80:
-		        bw = WL_CHANSPEC_BW_80;
+			bw = WL_CHANSPEC_BW_80;
 			goto set_channel;
 		default:
 			WL_ERR(("chanwidth not defined"));
-		return BCME_ERROR;
+			return BCME_ERROR;
 		}
 #else
 	WL_ERR(("netdev_ifidx(%d), chan_type(%d) target channel(%d) \n",
@@ -6846,12 +6864,12 @@ wl_cfg80211_start_ap(
 	if ((err = wl_cfg80211_set_channel(wiphy, dev,
 		dev->ieee80211_ptr->preset_chandef.chan,
 #ifdef WL_SUPPORT_CHAN_BW
-		NL80211_CHAN_WIDTH_HT20) < 0)) {
+		dev->ieee80211_ptr->preset_chandef.width) < 0)) {
 #else
 		NL80211_CHAN_HT20) < 0)) {
 #endif /* WL_SUPPORT_CHAN_BW */
-		WL_ERR(("Set channel failed \n"));
-		goto fail;
+			WL_ERR(("Set channel failed \n"));
+			goto fail;
 	}
 #endif 
 
@@ -7227,16 +7245,24 @@ wl_cfg80211_sched_scan_start(struct wiphy *wiphy,
 	int ssid_cnt = 0;
 	int i;
 	int ret = 0;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
+	s32 rssi_thold = 0;
+#endif /* KERNEL_VER >= 3.6 */
+
+	if (!request) {
+		WL_ERR(("Sched scan request was NULL\n"));
+		return -EINVAL;
+	}
 
 	WL_DBG(("Enter \n"));
-	WL_PNO((">>> SCHED SCAN START\n"));
+	WL_ERR((">>> SCHED SCAN START\n"));
 	WL_PNO(("Enter n_match_sets:%d   n_ssids:%d \n",
 		request->n_match_sets, request->n_ssids));
 	WL_PNO(("ssids:%d pno_time:%d pno_repeat:%d pno_freq:%d \n",
 		request->n_ssids, pno_time, pno_repeat, pno_freq_expo_max));
 
 
-	if (!request || !request->n_ssids || !request->n_match_sets) {
+	if (!request->n_ssids || !request->n_match_sets) {
 		WL_ERR(("Invalid sched scan req!! n_ssids:%d \n", request->n_ssids));
 		return -EINVAL;
 	}
@@ -7247,7 +7273,7 @@ wl_cfg80211_sched_scan_start(struct wiphy *wiphy,
 		hidden_ssid_list = request->ssids;
 
 	for (i = 0; i < request->n_match_sets && ssid_cnt < MAX_PFN_LIST_COUNT; i++) {
-			ssid = &request->match_sets[i].ssid;
+		ssid = &request->match_sets[i].ssid;
 		/* No need to include null ssid */
 		if (ssid->ssid_len) {
 			memcpy(ssids_local[ssid_cnt].SSID, ssid->ssid, ssid->ssid_len);
@@ -7258,14 +7284,26 @@ wl_cfg80211_sched_scan_start(struct wiphy *wiphy,
 			} else {
 				ssids_local[ssid_cnt].hidden = FALSE;
 				WL_PNO((">>> PNO non-hidden SSID (%s) \n", ssid->ssid));
-	}
+			}
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+			rssi_thold = request->match_sets[i].rssi_thold;
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
+			rssi_thold = request->rssi_thold;
+#endif 
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
+			if (rssi_thold != NL80211_SCAN_RSSI_THOLD_OFF) {
+				ssids_local[ssid_cnt].rssi_thresh = (int8)rssi_thold;
+			}
+#endif /* KERNEL_VER >= 3.6 */
 			ssid_cnt++;
 		}
 	}
 
 	if (ssid_cnt) {
-		if ((ret = dhd_dev_pno_set_for_ssid(dev, ssids_local, ssid_cnt,
-			pno_time, pno_repeat, pno_freq_expo_max, NULL, 0)) < 0) {
+		if ((ret = dhd_dev_pno_set_for_ssid(dev, ssids_local, ssid_cnt, pno_time,
+		        pno_repeat, pno_freq_expo_max, NULL, 0)) < 0) {
 			WL_ERR(("PNO setup failed!! ret=%d \n", ret));
 			return -EINVAL;
 		}
@@ -7361,6 +7399,9 @@ static struct cfg80211_ops wl_cfg80211_ops = {
 #ifdef WL_CFG80211_ACL
 	.set_mac_acl = wl_cfg80211_set_mac_acl,
 #endif /* WL_CFG80211_ACL */
+#if defined(WL_ABORT_SCAN)
+	.abort_scan = wl_cfg80211_abort_scan,
+#endif /* WL_ABORT_SCAN */
 	CFG80211_TESTMODE_CMD(dhd_cfg80211_testmode_cmd)
 };
 
@@ -8264,6 +8305,36 @@ wl_notify_rmc_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	return ret;
 }
 
+#ifdef RSSI_MONITOR_SUPPORT
+static s32
+wl_handle_rssi_monitor_event(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
+	const wl_event_msg_t *e, void *data)
+{
+#if defined(WL_VENDOR_EXT_SUPPORT) || defined(CONFIG_BCMDHD_VENDOR_EXT)
+	u32 datalen = be32_to_cpu(e->datalen);
+	struct net_device *ndev = cfgdev_to_wlc_ndev(cfgdev, cfg);
+	struct wiphy *wiphy = bcmcfg_to_wiphy(cfg);
+
+	if (datalen) {
+		wl_rssi_monitor_evt_t *evt_data = (wl_rssi_monitor_evt_t *)data;
+		if (evt_data->version == RSSI_MONITOR_VERSION) {
+			dhd_rssi_monitor_evt_t monitor_data;
+			monitor_data.version = DHD_RSSI_MONITOR_EVT_VERSION;
+			monitor_data.cur_rssi = evt_data->cur_rssi;
+			memcpy(&monitor_data.BSSID, &e->addr, ETHER_ADDR_LEN);
+			wl_cfgvendor_send_async_event(wiphy, ndev,
+				GOOGLE_RSSI_MONITOR_EVENT,
+				&monitor_data, sizeof(monitor_data));
+		} else {
+			WL_ERR(("Version mismatch %d, expected %d", evt_data->version,
+			       RSSI_MONITOR_VERSION));
+		}
+	}
+#endif /* WL_VENDOR_EXT_SUPPORT || CONFIG_BCMDHD_VENDOR_EXT */
+	return BCME_OK;
+}
+#endif /* RSSI_MONITOR_SUPPORT */
+
 static s32
 wl_notify_roaming_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	const wl_event_msg_t *e, void *data)
@@ -8339,7 +8410,21 @@ wl_notify_roam_prep_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	const wl_event_msg_t *e, void *data)
 {
 	s32 err = 0;
+	struct wl_security *sec;
+	struct net_device *ndev;
 	dhd_pub_t *dhdp = (dhd_pub_t *)(cfg->pub);
+
+	ndev = cfgdev_to_wlc_ndev(cfgdev, cfg);
+
+	sec = wl_read_prof(cfg, ndev, WL_PROF_SEC);
+	/* Disable Lossless Roaming for specific AKM suite
+	 * Any other AKM suite can be added below if transition time
+	 * is delayed because of Lossless Roaming
+	 * and it causes any certication failure
+	 */
+	if (IS_AKM_SUITE_FT(sec)) {
+		return err;
+	}
 
 	dhdp->dequeue_prec_map = 1 << PRIO_8021D_NC;
 	/* Restore flow control  */
@@ -8727,10 +8812,27 @@ wl_notify_pfn_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	const wl_event_msg_t *e, void *data)
 {
 	struct net_device *ndev = NULL;
+#ifdef GSCAN_SUPPORT
+	void *ptr;
+	int send_evt_bytes = 0;
+	u32 event = be32_to_cpu(e->event_type);
+	struct wiphy *wiphy = bcmcfg_to_wiphy(cfg);
+#endif /* GSCAN_SUPPORT */
 
 	WL_ERR((">>> PNO Event\n"));
 
 	ndev = cfgdev_to_wlc_ndev(cfgdev, cfg);
+
+#ifdef GSCAN_SUPPORT
+	ptr = dhd_dev_process_epno_result(ndev, data, event, &send_evt_bytes);
+	if (ptr) {
+		wl_cfgvendor_send_async_event(wiphy, ndev,
+			GOOGLE_SCAN_EPNO_EVENT, ptr, send_evt_bytes);
+		kfree(ptr);
+	}
+	if (!dhd_dev_is_legacy_pno_enabled(ndev))
+		return 0;
+#endif /* GSCAN_SUPPORT */
 
 #ifndef WL_SCHED_SCAN
 	mutex_lock(&cfg->usr_sync);
@@ -8758,52 +8860,44 @@ wl_notify_gscan_event(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	int send_evt_bytes = 0;
 	int batch_event_result_dummy = 0;
 	struct net_device *ndev = cfgdev_to_wlc_ndev(cfgdev, cfg);
-#ifdef WL_VENDOR_EXT_SUPPORT
 	struct wiphy *wiphy = bcmcfg_to_wiphy(cfg);
-#endif /* WL_VENDOR_EXT_SUPPORT */
 	u32 len = ntoh32(e->datalen);
 
 	switch (event) {
 		case WLC_E_PFN_SWC:
 			ptr = dhd_dev_swc_scan_event(ndev, data, &send_evt_bytes);
 			if (send_evt_bytes) {
-#ifdef WL_VENDOR_EXT_SUPPORT
 				wl_cfgvendor_send_async_event(wiphy, ndev,
-					GOOGLE_GSCAN_SIGNIFICANT_EVENT, ptr, send_evt_bytes);
-#endif /* WL_VENDOR_EXT_SUPPORT */
+				    GOOGLE_GSCAN_SIGNIFICANT_EVENT, ptr, send_evt_bytes);
 				kfree(ptr);
-			}
+			} else
+				err = -ENOMEM;
 			break;
 		case WLC_E_PFN_BEST_BATCHING:
 			err = dhd_dev_retrieve_batch_scan(ndev);
 			if (err < 0) {
 				WL_ERR(("Batch retrieval already in progress %d\n", err));
 			} else {
-#ifdef WL_VENDOR_EXT_SUPPORT
 				wl_cfgvendor_send_async_event(wiphy, ndev,
-					GOOGLE_GSCAN_BATCH_SCAN_EVENT,
-					&batch_event_result_dummy, sizeof(int));
-#endif /* WL_VENDOR_EXT_SUPPORT */
+				    GOOGLE_GSCAN_BATCH_SCAN_EVENT,
+				     &batch_event_result_dummy, sizeof(int));
 			}
 			break;
 		case WLC_E_PFN_SCAN_COMPLETE:
 			batch_event_result_dummy = WIFI_SCAN_COMPLETE;
-
-#ifdef WL_VENDOR_EXT_SUPPORT
 			wl_cfgvendor_send_async_event(wiphy, ndev,
 				GOOGLE_SCAN_COMPLETE_EVENT,
 				&batch_event_result_dummy, sizeof(int));
-#endif /* WL_VENDOR_EXT_SUPPORT */
 			break;
 		case WLC_E_PFN_BSSID_NET_FOUND:
 			ptr = dhd_dev_hotlist_scan_event(ndev, data, &send_evt_bytes,
 				HOTLIST_FOUND);
 			if (ptr) {
-#ifdef WL_VENDOR_EXT_SUPPORT
-				wl_cfgvendor_send_hotlist_event(wiphy, ndev, ptr,
-					send_evt_bytes, GOOGLE_GSCAN_GEOFENCE_FOUND_EVENT);
-#endif /* WL_VENDOR_EXT_SUPPORT */
+				wl_cfgvendor_send_hotlist_event(wiphy, ndev,
+				 ptr, send_evt_bytes, GOOGLE_GSCAN_GEOFENCE_FOUND_EVENT);
 				dhd_dev_gscan_hotlist_cache_cleanup(ndev, HOTLIST_FOUND);
+			} else {
+				err = -ENOMEM;
 			}
 			break;
 		case WLC_E_PFN_BSSID_NET_LOST:
@@ -8814,27 +8908,50 @@ wl_notify_gscan_event(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 				ptr = dhd_dev_hotlist_scan_event(ndev, data, &send_evt_bytes,
 					HOTLIST_LOST);
 				if (ptr) {
-#ifdef WL_VENDOR_EXT_SUPPORT
-					wl_cfgvendor_send_hotlist_event(wiphy, ndev, ptr,
-						send_evt_bytes, GOOGLE_GSCAN_GEOFENCE_LOST_EVENT);
-#endif /* WL_VENDOR_EXT_SUPPORT */
+					wl_cfgvendor_send_hotlist_event(wiphy, ndev,
+					 ptr, send_evt_bytes, GOOGLE_GSCAN_GEOFENCE_LOST_EVENT);
 					dhd_dev_gscan_hotlist_cache_cleanup(ndev, HOTLIST_LOST);
+				} else {
+					err = -ENOMEM;
 				}
+			} else {
+				err = -EINVAL;
 			}
 			break;
 		case WLC_E_PFN_GSCAN_FULL_RESULT:
 			ptr = dhd_dev_process_full_gscan_result(ndev, data, &send_evt_bytes);
 			if (ptr) {
-#ifdef WL_VENDOR_EXT_SUPPORT
 				wl_cfgvendor_send_async_event(wiphy, ndev,
-					GOOGLE_SCAN_FULL_RESULTS_EVENT, ptr, send_evt_bytes);
-#endif /* WL_VENDOR_EXT_SUPPORT */
+				    GOOGLE_SCAN_FULL_RESULTS_EVENT, ptr, send_evt_bytes);
 				kfree(ptr);
+			} else {
+				err = -ENOMEM;
 			}
 			break;
+		case WLC_E_PFN_SSID_EXT:
+			ptr = dhd_dev_process_epno_result(ndev, data, event, &send_evt_bytes);
+			if (ptr) {
+				wl_cfgvendor_send_async_event(wiphy, ndev,
+				    GOOGLE_SCAN_EPNO_EVENT, ptr, send_evt_bytes);
+				kfree(ptr);
+			} else {
+				err = -ENOMEM;
+			}
+			break;
+#if defined(ANQPO_SUPPORT)
+		case WLC_E_PFN_NET_FOUND:
+			ptr = dhd_dev_process_anqpo_result(ndev, data, event, &len);
+			if (ptr) {
+				wl_cfgvendor_send_async_event(wiphy, ndev,
+					GOOGLE_PNO_HOTSPOT_FOUND_EVENT, ptr, len);
+				kfree(ptr);
+			} else
+				err = -ENOMEM;
+			break;
+#endif /* ANQPO_SUPPORT */
 		default:
-			WL_ERR(("%s: Unexpected event! - %d\n", __FUNCTION__, event));
-
+			WL_ERR(("Unknown event %d\n", event));
+			break;
 	}
 	return err;
 }
@@ -9228,8 +9345,13 @@ wl_notify_sched_scan_results(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 
 	WL_DBG(("Enter\n"));
 
-	if (e->event_type == WLC_E_PFN_NET_LOST) {
-		WL_PNO(("PFN NET LOST event. Do Nothing \n"));
+	if ((e->event_type == WLC_E_PFN_NET_LOST) || !data) {
+		WL_PNO(("Do Nothing %d\n", e->event_type));
+		return 0;
+	}
+	if (pfn_result->version != PFN_SCANRESULT_VERSION) {
+		WL_ERR(("Incorrect version %d, expected %d\n", pfn_result->version,
+		       PFN_SCANRESULT_VERSION));
 		return 0;
 	}
 	WL_PNO((">>> PFN NET FOUND event. count:%d \n", n_pfn_results));
@@ -9272,9 +9394,8 @@ wl_notify_sched_scan_results(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 			 * scan request in the form of cfg80211_scan_request. For timebeing, create
 			 * cfg80211_scan_request one out of the received PNO event.
 			 */
-			memcpy(ssid[i].ssid, netinfo->pfnsubnet.SSID,
-				netinfo->pfnsubnet.SSID_len);
-			ssid[i].ssid_len = netinfo->pfnsubnet.SSID_len;
+			ssid[i].ssid_len = MIN(netinfo->pfnsubnet.SSID_len, DOT11_MAX_SSID_LEN);
+			memcpy(ssid[i].ssid, netinfo->pfnsubnet.SSID, ssid[i].ssid_len);
 			request->n_ssids++;
 
 			channel_req = netinfo->pfnsubnet.channel;
@@ -9386,7 +9507,14 @@ static void wl_init_event_handler(struct bcm_cfg80211 *cfg)
 	cfg->evt_handler[WLC_E_PFN_SWC] = wl_notify_gscan_event;
 	cfg->evt_handler[WLC_E_PFN_BSSID_NET_FOUND] = wl_notify_gscan_event;
 	cfg->evt_handler[WLC_E_PFN_BSSID_NET_LOST] = wl_notify_gscan_event;
+	cfg->evt_handler[WLC_E_PFN_SSID_EXT] = wl_notify_gscan_event;
+#if defined(ANQPO_SUPPORT)
+	cfg->evt_handler[WLC_E_GAS_FRAGMENT_RX] = wl_notify_gscan_event;
+#endif /* ANQPO_SUPPORT */
 #endif /* GSCAN_SUPPORT */
+#ifdef RSSI_MONITOR_SUPPORT
+	cfg->evt_handler[WLC_E_RSSI_LQM] = wl_handle_rssi_monitor_event;
+#endif /* RSSI_MONITOR_SUPPORT */
 #ifdef WLTDLS
 	cfg->evt_handler[WLC_E_TDLS_PEER_EVENT] = wl_tdls_event_handler;
 #endif /* WLTDLS */
@@ -9704,6 +9832,19 @@ static void wl_cfg80211_scan_abort(struct bcm_cfg80211 *cfg)
 		}
 	}
 }
+
+#if defined(WL_ABORT_SCAN)
+static void wl_cfg80211_abort_scan(struct wiphy *wiphy, struct wireless_dev *wdev)
+{
+	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+
+	if (cfg == NULL) {
+		WL_ERR(("Parsing parameter failed\n"));
+		return;
+	}
+	wl_cfg80211_scan_abort(cfg);
+}
+#endif /* WL_ABORT_SCAN */
 
 static s32 wl_notify_escan_complete(struct bcm_cfg80211 *cfg,
 	struct net_device *ndev,

@@ -2,7 +2,7 @@
  * Common stats definitions for clients of dongle
  * ports
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dngl_stats.h 529841 2015-01-28 12:04:49Z $
+ * $Id: dngl_stats.h 604675 2015-12-08 06:42:14Z $
  */
 
 #ifndef _dngl_stats_h_
@@ -128,6 +128,15 @@ typedef struct {
 	uint32 bitrate;		/* units of 100 Kbps */
 } wifi_rate;
 
+typedef struct {
+	uint32 preamble;
+	uint32 nss;
+	uint32 bw;
+	uint32 rateMcsIdx;
+	uint32 reserved;
+	uint32 bitrate;
+} wifi_rate_v2;
+
 /* channel statistics */
 typedef struct {
 	wifi_channel_info channel;	/* channel */
@@ -158,6 +167,23 @@ typedef struct {
 	wifi_channel_stat channels[];   /* channel statistics */
 } wifi_radio_stat;
 
+typedef struct {
+	uint16 version;
+	uint16 length;
+	wifi_radio radio;
+	uint32 on_time;
+	uint32 tx_time;
+	uint32 rx_time;
+	uint32 on_time_scan;
+	uint32 on_time_nbd;
+	uint32 on_time_gscan;
+	uint32 on_time_roam_scan;
+	uint32 on_time_pno_scan;
+	uint32 on_time_hs20;
+	uint32 num_channels;
+	uint8 channels[1];
+} wifi_radio_stat_v2;
+
 /* per rate statistics */
 typedef struct {
 	wifi_rate rate;     /* rate information */
@@ -168,6 +194,18 @@ typedef struct {
 	uint32 retries_short;  /* number of short data pkt retries */
 	uint32 retries_long;   /* number of long data pkt retries */
 } wifi_rate_stat;
+
+typedef struct {
+	uint16 version;
+	uint16 length;
+	uint32 tx_mpdu;
+	uint32 rx_mpdu;
+	uint32 mpdu_lost;
+	uint32 retries;
+	uint32 retries_short;
+	uint32 retries_long;
+	wifi_rate_v2 rate;
+} wifi_rate_stat_v2;
 
 /* access categories */
 typedef enum {
@@ -231,6 +269,23 @@ typedef struct {
 	wifi_interface_info info;	/* current state of the interface */
 	uint32 beacon_rx;			/* access point beacon received count
 					 * from connected AP
+					 */
+	uint64 average_tsf_offset;	/* average beacon offset encountered (beacon_TSF - TBTT)
+					 * The average_tsf_offset field is used so as to calculate
+					 * the typical beacon contention time on the channel as well
+					 * may be used to debug beacon synchronization and related
+					 * power consumption issue
+					 */
+	uint32 leaky_ap_detected;	/* indicate that this AP typically leaks packets beyond
+					 * the driver guard time.
+					 */
+	uint32 leaky_ap_avg_num_frames_leaked;	/* average number of frame leaked by AP after
+						 * frame with PM bit set was ACK'ed by AP
+						 */
+	uint32 leaky_ap_guard_time;	/* guard time currently in force (when implementing IEEE
+					 * power management based on frame control PM bit), How long
+					 * driver waits before shutting down the radio and after
+					 * receiving an ACK for a data frame with PM bit set)
 					 */
 	uint32 mgmt_rx;			/* access point mgmt frames received count
 					 * from connected AP (including Beacon)

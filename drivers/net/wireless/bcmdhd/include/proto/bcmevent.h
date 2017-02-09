@@ -1,7 +1,7 @@
 /*
  * Broadcom Event  protocol definitions
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -23,7 +23,7 @@
  *
  * Dependencies: proto/bcmeth.h
  *
- * $Id: bcmevent.h 516345 2014-11-19 11:58:57Z $
+ * $Id: bcmevent.h 598274 2015-11-09 07:57:24Z $
  *
  */
 
@@ -216,16 +216,18 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_CSA_DONE_IND		122
 #define WLC_E_CSA_FAILURE_IND		123
 #define WLC_E_CCA_CHAN_QUAL		124	/* CCA based channel quality report */
-#define WLC_E_BSSID		125	/* to report change in BSSID while roaming */
+#define WLC_E_BSSID			125	/* to report change in BSSID while roaming */
 #define WLC_E_TX_STAT_ERROR		126	/* tx error indication */
 #define WLC_E_BCMC_CREDIT_SUPPORT	127	/* credit check for BCMC supported */
-#define WLC_E_PFN_GSCAN_FULL_RESULT		134 /* Full probe/beacon (IEs etc) results */
-#define WLC_E_PFN_SWC		135 /* Significant change in rssi of bssids being tracked */
-#define WLC_E_PFN_SCAN_COMPLETE 138 /* PFN completed scan of network list */
-#define WLC_E_RMC_EVENT			139	/* RMC event */
-#define WLC_E_LAST			140	/* highest val + 1 for range checking */
+#define WLC_E_RSSI_LQM			133	/* Enhancement addition for WLC_E_RSSI */
+#define WLC_E_PFN_GSCAN_FULL_RESULT	134	/* Full probe/beacon (IEs etc) results */
+#define WLC_E_PFN_SWC		135	/* Significant change in rssi of bssids being tracked */
+#define WLC_E_PFN_SCAN_COMPLETE	138	/* PFN completed scan of network list */
+#define WLC_E_RMC_EVENT		139	/* RMC event */
+#define WLC_E_PFN_SSID_EXT		142	/* SSID EXT event */
+#define WLC_E_LAST			143	/* highest val + 1 for range checking */
 
-#if (WLC_E_LAST > 140)
+#if (WLC_E_LAST > 143)
 #error "WLC_E_LAST: Invalid value for last event; must be <= 140."
 #endif /* WLC_E_LAST */
 

@@ -1,6 +1,6 @@
 /*
 * Customer code to add GPIO control during WLAN start/stop
-* Copyright (C) 1999-2015, Broadcom Corporation
+* Copyright (C) 1999-2016, Broadcom Corporation
 * Copyright (C) 2013 Sony Mobile Communications Inc.
 * 
 *      Unless you and Broadcom execute a separate written software license
@@ -490,7 +490,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"RE", "RE", 2},
 	{"RO", "RO", 212},
 	{"RS", "RS", 2},
-	{"RU", "RU", 212},
+	{"RU", "RU", 991},
 	{"RW", "XT", 212},
 	{"SA", "SA", 212},
 	{"SB", "SB", 0},

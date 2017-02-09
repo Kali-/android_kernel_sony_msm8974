@@ -66,7 +66,7 @@ static int msm8974_auxpcm_rate = 8000;
 #define I2S_PCM_SEL 1
 #define I2S_PCM_SEL_OFFSET 1
 
-#define WCD9XXX_MBHC_DEF_BUTTONS 4
+#define WCD9XXX_MBHC_DEF_BUTTONS 5
 #define WCD9XXX_MBHC_DEF_RLOADS 5
 #define TAIKO_EXT_CLK_RATE 9600000
 
@@ -1926,13 +1926,15 @@ void *def_taiko_mbhc_cal(void)
 	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
 					       MBHC_BTN_DET_V_BTN_HIGH);
 	btn_low[0] = -30;
-	btn_high[0] = 50;
-	btn_low[1] = 51;
-	btn_high[1] = 336;
-	btn_low[2] = 337;
-	btn_high[2] = 680;
-	btn_low[3] = 681;
-	btn_high[3] = 1207;
+	btn_high[0] = 106;
+	btn_low[1] = 107;
+	btn_high[1] = 202;
+	btn_low[2] = 203;
+	btn_high[2] = 347;
+	btn_low[3] = 348;
+	btn_high[3] = 759;
+	btn_low[4] = 760;
+	btn_high[4] = 1207;
 	n_ready = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_READY);
 	n_ready[0] = 80;
 	n_ready[1] = 68;
